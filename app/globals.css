@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 222 50% 5%;
+    --foreground: 210 40% 93%;
+    --card: 220 30% 12%;
+    --card-foreground: 210 40% 93%;
+    --popover: 220 30% 12%;
+    --popover-foreground: 210 40% 93%;
+    --primary: 22 100% 50%;
+    --primary-foreground: 222 50% 5%;
+    --secondary: 220 30% 16%;
+    --secondary-foreground: 210 40% 93%;
+    --muted: 220 20% 18%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 192 100% 50%;
+    --accent-foreground: 222 50% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 22 100% 50%;
+    --chart-1: 22 100% 50%;
+    --chart-2: 192 100% 50%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .glass {
+    background: rgba(26, 34, 50, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .glass-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .hero-gradient {
+    background: linear-gradient(to bottom, rgba(10, 15, 24, 0.2), rgba(10, 15, 24, 0.95));
+  }
+  .orange-glow {
+    box-shadow: 0 0 20px rgba(255, 95, 0, 0.3);
+  }
+  .shop-card-glow {
+    border: 1px solid rgba(0, 209, 255, 0.15);
+    box-shadow: 0 0 15px rgba(0, 209, 255, 0.05);
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .shop-card-glow:hover {
+    border: 1px solid rgba(255, 95, 0, 0.4);
+    box-shadow: 0 0 20px rgba(255, 95, 0, 0.1);
+  }
+  .neon-pin-orange {
+    filter: drop-shadow(0 0 8px rgba(255, 95, 0, 0.6));
+  }
+  .neon-pin-blue {
+    filter: drop-shadow(0 0 8px rgba(0, 209, 255, 0.6));
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+
