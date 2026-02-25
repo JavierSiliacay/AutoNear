@@ -4,6 +4,8 @@ import { AdminQueue } from "@/components/admin-queue"
 import { BottomNav } from "@/components/bottom-nav"
 import { MaterialIcon } from "@/components/material-icon"
 
+export const dynamic = "force-dynamic"
+
 const ALLOWED_EMAILS = [
     "siliacay.javier@gmail.com",
     "javiersiliacaysiliacay1234@gmail.com",

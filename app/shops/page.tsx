@@ -4,6 +4,8 @@ import { BottomNav } from "@/components/bottom-nav"
 import { ShopsList } from "./shops-list"
 import { MaterialIcon } from "@/components/material-icon"
 
+export const dynamic = "force-dynamic"
+
 export default async function ShopsPage(props: {
   searchParams: Promise<{ city?: string; lat?: string; lng?: string; service?: string }>
 }) {

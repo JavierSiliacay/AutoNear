@@ -5,6 +5,8 @@ import { BottomNav } from "@/components/bottom-nav"
 import { MaterialIcon } from "@/components/material-icon"
 import { ServiceRequestForm } from "@/components/service-request-form"
 
+export const dynamic = "force-dynamic"
+
 export default async function ShopDetailPage(props: {
   params: Promise<{ id: string }>
   searchParams: Promise<{ originLat?: string; originLng?: string }>
