@@ -10,9 +10,19 @@ export async function GET(request: Request) {
     const origin = requestUrl.origin
     const redirectTo = requestUrl.searchParams.get('redirect_to')?.toString()
 
+    const ALLOWED_EMAILS = [
+        "siliacay.javier@gmail.com",
+        "javiersiliacaysiliacay1234@gmail.com",
+        "javiersiliacay12@gmail.com"
+    ]
+
     if (code) {
         const supabase = await createClient()
-        await supabase.auth.exchangeCodeForSession(code)
+        const { data: { user } } = await supabase.auth.exchangeCodeForSession(code)
+
+        if (user?.email && ALLOWED_EMAILS.includes(user.email)) {
+            return NextResponse.redirect(`${origin}/admin`)
+        }
     }
 
     if (redirectTo) {
@@ -20,5 +30,5 @@ export async function GET(request: Request) {
     }
 
     // URL to redirect to after sign in process completes
-    return NextResponse.redirect(`${origin}/admin`)
+    return NextResponse.redirect(`${origin}/profile`)
 }

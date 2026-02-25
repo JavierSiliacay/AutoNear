@@ -7,16 +7,23 @@ import type { Shop } from "@/lib/types"
 interface ShopCardProps {
   shop: Shop
   distance?: number | null
+  userLat?: number
+  userLng?: number
 }
 
-export function ShopCard({ shop, distance }: ShopCardProps) {
+export function ShopCard({ shop, distance, userLat, userLng }: ShopCardProps) {
+  const queryParams = new URLSearchParams()
+  if (userLat) queryParams.set("originLat", userLat.toString())
+  if (userLng) queryParams.set("originLng", userLng.toString())
+  const detailUrl = `/shops/${shop.id}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+
   const services = shop.services
     ? shop.services.split(",").map((s) => s.trim()).filter(Boolean)
     : []
 
   return (
     <div className="glass-card shop-card-glow rounded-2xl overflow-hidden">
-      <Link href={`/shops/${shop.id}`} className="block">
+      <Link href={detailUrl} className="block">
         <div className="p-5 pb-0">
           <div className="flex items-start justify-between gap-4">
             <h3 className="text-foreground font-extrabold text-xl tracking-tight flex-1">{shop.name}</h3>
@@ -54,7 +61,7 @@ export function ShopCard({ shop, distance }: ShopCardProps) {
       <div className="p-5 pt-0">
         <div className="flex items-center gap-3">
           <Link
-            href={`/shops/${shop.id}`}
+            href={detailUrl}
             className="flex-1 h-12 bg-turbo-orange orange-glow text-midnight font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center hover:opacity-90 transition-opacity"
           >
             View Shop

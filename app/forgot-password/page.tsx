@@ -3,34 +3,32 @@
 import { useState } from 'react';
 import { MaterialIcon } from '@/components/material-icon';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-    const router = useRouter();
     const supabase = createClient();
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleResetRequest = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setMessage({ type: '', text: '' });
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
         });
 
         if (error) {
             setMessage({ type: 'error', text: error.message });
-            setIsLoading(false);
         } else {
-            router.push('/profile');
-            router.refresh();
+            setMessage({
+                type: 'success',
+                text: 'Password reset link sent! Please check your email inbox.'
+            });
         }
+        setIsLoading(false);
     };
 
     return (
@@ -40,20 +38,22 @@ export default function LoginPage() {
             <div className="glass-card w-full max-w-md p-8 rounded-3xl border border-white/10 relative z-10 animate-in zoom-in-95 duration-500">
                 <div className="text-center mb-8">
                     <div className="w-16 h-16 bg-turbo-orange rounded-2xl flex items-center justify-center text-midnight mx-auto mb-4 shadow-[0_0_30px_rgba(255,95,0,0.4)]">
-                        <MaterialIcon name="login" className="text-4xl" />
+                        <MaterialIcon name="lock_reset" className="text-4xl" />
                     </div>
-                    <h1 className="text-2xl font-black text-foreground uppercase tracking-tight">AutoNear Login</h1>
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">Welcome back to the dashboard</p>
+                    <h1 className="text-2xl font-black text-foreground uppercase tracking-tight">Reset Password</h1>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">Enter your email to get a reset link</p>
                 </div>
 
                 {message.text && (
-                    <div className={`p-4 rounded-xl text-sm font-bold text-center mb-6 animate-in fade-in ${message.type === 'error' ? 'bg-destructive/10 border border-destructive/20 text-destructive' : 'bg-green-500/10 border border-green-500/20 text-green-400'
+                    <div className={`p-4 rounded-xl text-sm font-bold text-center mb-6 animate-in fade-in ${message.type === 'error'
+                            ? 'bg-destructive/10 border border-destructive/20 text-destructive'
+                            : 'bg-green-500/10 border border-green-500/20 text-green-400'
                         }`}>
                         {message.text}
                     </div>
                 )}
 
-                <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                <form onSubmit={handleResetRequest} className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
                         <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Email Address</label>
                         <div className="relative">
@@ -69,39 +69,19 @@ export default function LoginPage() {
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                        <div className="flex justify-between items-center ml-1">
-                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Password</label>
-                            <Link href="/forgot-password" className="text-[10px] font-black text-turbo-orange uppercase hover:text-white transition-colors">
-                                Forgot?
-                            </Link>
-                        </div>
-                        <div className="relative">
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="w-full h-12 bg-background border border-white/10 rounded-xl pl-12 pr-4 text-sm focus:ring-2 focus:ring-turbo-orange outline-none transition-all placeholder:text-muted-foreground/50"
-                                required
-                            />
-                            <MaterialIcon name="lock" className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        </div>
-                    </div>
-
                     <button
                         disabled={isLoading}
                         className="h-12 bg-turbo-orange text-midnight font-black uppercase tracking-wider text-xs rounded-xl hover:bg-white hover:text-turbo-orange transition-all disabled:opacity-50 mt-2 shadow-lg shadow-turbo-orange/20"
                     >
-                        {isLoading ? 'Signing In...' : 'Sign In'}
+                        {isLoading ? 'Sending Link...' : 'Send Reset Link'}
                     </button>
                 </form>
 
                 <div className="mt-8 pt-6 border-t border-white/5 text-center">
                     <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-                        Don't have an account?{' '}
-                        <Link href="/register" className="text-turbo-orange hover:text-white transition-colors">
-                            Sign Up
+                        Remember your password?{' '}
+                        <Link href="/login" className="text-turbo-orange hover:text-white transition-colors">
+                            Sign In
                         </Link>
                     </p>
                 </div>

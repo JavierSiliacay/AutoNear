@@ -221,6 +221,54 @@ const initialShops = [
         rating: 4.1,
         review_count: 342,
         is_verified: true
+    },
+    {
+        name: "Yokohama Zamboanga - L'Tyre Center",
+        description: "Authorized Yokohama dealer in Zamboanga offering premium tires and expert suspension work.",
+        services: "Tire Services, Wheel Alignment, Suspension, Vulcanizing",
+        address: "Gov. Camins Ave",
+        barangay: "Canelar",
+        city: "Zamboanga City",
+        province: "Zamboanga del Sur",
+        latitude: 6.9185,
+        longitude: 122.0725,
+        phone: "062-991-1234",
+        opening_hours: "8:00 AM - 5:30 PM",
+        rating: 4.6,
+        review_count: 88,
+        is_verified: true
+    },
+    {
+        name: "Rapide Auto Service - Zamboanga",
+        description: "Professional auto maintenance and repair center specializing in brakes and lube services.",
+        services: "General Repair, Oil Change, Brake Services",
+        address: "MCLL Highway",
+        barangay: "Guiwan",
+        city: "Zamboanga City",
+        province: "Zamboanga del Sur",
+        latitude: 6.9288,
+        longitude: 122.0955,
+        phone: "062-992-5555",
+        opening_hours: "8:00 AM - 5:00 PM",
+        rating: 4.4,
+        review_count: 56,
+        is_verified: true
+    },
+    {
+        name: "Bridgestone Zamboanga - T.M.S.",
+        description: "Official Bridgestone tire center providing top-tier tire and alignment services for all vehicles.",
+        services: "Tire Services, Wheel Alignment, Vulcanizing",
+        address: "Veterans Avenue",
+        barangay: "Sta. Maria",
+        city: "Zamboanga City",
+        province: "Zamboanga del Sur",
+        latitude: 6.9215,
+        longitude: 122.0785,
+        phone: "062-991-0000",
+        opening_hours: "8:00 AM - 6:00 PM",
+        rating: 4.7,
+        review_count: 120,
+        is_verified: true
     }
 ]
 

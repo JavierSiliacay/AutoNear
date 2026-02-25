@@ -42,17 +42,17 @@ export interface ServiceRequest {
 }
 
 export const PH_CITIES = [
-  { label: "Manila", value: "Manila", province: "Metro Manila" },
-  { label: "Quezon City", value: "Quezon City", province: "Metro Manila" },
-  { label: "Makati", value: "Makati", province: "Metro Manila" },
-  { label: "Pasig", value: "Pasig", province: "Metro Manila" },
-  { label: "Taguig", value: "Taguig", province: "Metro Manila" },
-  { label: "Cebu City", value: "Cebu City", province: "Cebu" },
-  { label: "Davao City", value: "Davao City", province: "Davao del Sur" },
-  { label: "Angeles City", value: "Angeles City", province: "Pampanga" },
-  { label: "Antipolo", value: "Antipolo", province: "Rizal" },
-  { label: "Caloocan", value: "Caloocan", province: "Metro Manila" },
-  { label: "Cagayan de Oro", value: "Cagayan de Oro", province: "Misamis Oriental" },
+  { label: "Manila", value: "Manila", province: "Metro Manila", lat: 14.5995, lng: 120.9842 },
+  { label: "Quezon City", value: "Quezon City", province: "Metro Manila", lat: 14.6760, lng: 121.0437 },
+  { label: "Makati", value: "Makati", province: "Metro Manila", lat: 14.5547, lng: 121.0244 },
+  { label: "Pasig", value: "Pasig", province: "Metro Manila", lat: 14.5764, lng: 121.0851 },
+  { label: "Taguig", value: "Taguig", province: "Metro Manila", lat: 14.5176, lng: 121.0509 },
+  { label: "Cebu City", value: "Cebu City", province: "Cebu", lat: 10.3157, lng: 123.8854 },
+  { label: "Davao City", value: "Davao City", province: "Davao del Sur", lat: 7.1907, lng: 125.4553 },
+  { label: "Angeles City", value: "Angeles City", province: "Pampanga", lat: 15.1451, lng: 120.5947 },
+  { label: "Antipolo", value: "Antipolo", province: "Rizal", lat: 14.5845, lng: 121.1754 },
+  { label: "Caloocan", value: "Caloocan", province: "Metro Manila", lat: 14.6416, lng: 120.9762 },
+  { label: "Cagayan de Oro", value: "Cagayan de Oro", province: "Misamis Oriental", lat: 8.4875, lng: 124.6497 },
 ] as const
 
 export const SERVICE_TYPES = [

@@ -37,14 +37,16 @@ export function LocationPicker() {
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
           );
           const data = await response.json();
-          const locationName = data.locality || data.city || data.principalSubdivision || "Nearby";
+          const cityName = data.city || data.principalSubdivision || "Nearby";
+          const barangayName = data.locality || "";
+          const locationDisplay = barangayName ? `${barangayName}, ${cityName}` : cityName;
 
-          setCity(locationName); // Show the address in the dropdown
+          setCity(cityName); // Use the larger city for the filter
           setLocating(false)
 
           // Small delay so user sees the text change before redirect
           setTimeout(() => {
-            router.push(`/shops?lat=${latitude}&lng=${longitude}`)
+            router.push(`/shops?lat=${latitude}&lng=${longitude}&city=${encodeURIComponent(cityName)}`)
           }, 800);
         } catch (err) {
           console.error("Reverse geocoding error:", err);
@@ -64,7 +66,7 @@ export function LocationPicker() {
         }
       },
       {
-        enableHighAccuracy: false, // Set to false to get a faster/easier location lock without GPS hardware
+        enableHighAccuracy: true, // Use GPS if available for better accuracy
         timeout: 15000,
         maximumAge: 60000
       }
@@ -73,7 +75,12 @@ export function LocationPicker() {
 
   const handleExplore = () => {
     if (city) {
-      router.push(`/shops?city=${encodeURIComponent(city)}`)
+      const selectedCity = PH_CITIES.find(c => c.value === city);
+      if (selectedCity) {
+        router.push(`/shops?city=${encodeURIComponent(city)}&lat=${selectedCity.lat}&lng=${selectedCity.lng}`)
+      } else {
+        router.push(`/shops?city=${encodeURIComponent(city)}`)
+      }
     } else {
       handleGeolocation()
     }
@@ -136,14 +143,28 @@ export function LocationPicker() {
         )}
 
         {!locating && city && (
-          <div className="bg-electric-blue/10 border border-electric-blue/20 rounded-xl p-4 flex items-center gap-4 animate-in">
-            <div className="w-10 h-10 bg-electric-blue/20 rounded-lg flex items-center justify-center text-electric-blue">
-              <MaterialIcon name="location_searching" className="text-xl" />
+          <div className="flex flex-col gap-2 animate-in">
+            <div className="bg-electric-blue/10 border border-electric-blue/20 rounded-xl p-4 flex items-center gap-4">
+              <div className="w-10 h-10 bg-electric-blue/20 rounded-lg flex items-center justify-center text-electric-blue">
+                <MaterialIcon name="location_searching" className="text-xl" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold text-electric-blue uppercase tracking-widest">Location Detected</p>
+                <p className="text-sm font-black text-foreground truncate">You are in {city}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setCity("");
+                  setLocationError("");
+                }}
+                className="text-[10px] font-black text-muted-foreground hover:text-turbo-orange uppercase tracking-wider"
+              >
+                Wrong?
+              </button>
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-electric-blue uppercase tracking-widest">Location Detected</p>
-              <p className="text-sm font-bold text-foreground">You are in {city}</p>
-            </div>
+            <p className="text-[9px] text-muted-foreground/60 px-2 italic">
+              Note: ISP routing can sometimes cause inaccurate detection.
+            </p>
           </div>
         )}
 

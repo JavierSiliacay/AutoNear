@@ -7,8 +7,10 @@ import { ServiceRequestForm } from "@/components/service-request-form"
 
 export default async function ShopDetailPage(props: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ originLat?: string; originLng?: string }>
 }) {
   const params = await props.params
+  const searchParams = await props.searchParams
   const shop = await getShopById(params.id)
 
   if (!shop) {
@@ -23,9 +25,11 @@ export default async function ShopDetailPage(props: {
     .filter(Boolean)
     .join(", ")
 
-  const directionsUrl = shop.latitude && shop.longitude
-    ? `https://www.google.com/maps/dir/?api=1&destination=${shop.latitude},${shop.longitude}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
+  const origin = searchParams.originLat && searchParams.originLng
+    ? `${searchParams.originLat},${searchParams.originLng}`
+    : "";
+
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${shop.name}, ${fullAddress}`)}${origin ? `&origin=${origin}` : ""}`
 
   return (
     <div className="min-h-screen pb-32">

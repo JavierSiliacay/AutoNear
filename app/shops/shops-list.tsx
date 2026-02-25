@@ -59,10 +59,11 @@ export function ShopsList({ city, lat, lng, service: initialService }: ShopsList
     })
 
   const withinRadius = lat && lng
-    ? filtered.filter((s) => s.distance != null && s.distance <= 10)
+    ? filtered.filter((s) => s.distance != null && s.distance <= 100) // Increased to 100km for wider coverage
     : filtered
 
   const displayShops = withinRadius.length > 0 ? withinRadius : filtered
+  const isFallback = withinRadius.length === 0 && filtered.length > 0;
 
   return (
     <>
@@ -109,10 +110,27 @@ export function ShopsList({ city, lat, lng, service: initialService }: ShopsList
         <h2 className="text-foreground font-black text-xl tracking-tight">
           {city ? `Shops in ${city}` : lat ? "Nearby Shops" : "All Shops"}
         </h2>
+        {isFallback && (
+          <span className="text-turbo-orange text-[10px] font-bold uppercase bg-turbo-orange/10 px-2 py-1 rounded">
+            Showing distant results
+          </span>
+        )}
         <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest">
           {displayShops.length} {displayShops.length === 1 ? "Result" : "Results"}
         </span>
       </div>
+
+      {lat && lng && displayShops.length > 0 && displayShops[0].distance! > 100 && (
+        <div className="mb-6 p-4 bg-turbo-orange/10 border border-turbo-orange/20 rounded-xl flex gap-3 items-start animate-in">
+          <MaterialIcon name="info" className="text-turbo-orange shrink-0" />
+          <div className="flex-1">
+            <p className="text-[11px] font-bold text-turbo-orange uppercase tracking-wider mb-1">Location Accuracy</p>
+            <p className="text-xs text-foreground/80 leading-relaxed">
+              You're being detected as <strong>{Math.round(displayShops[0].distance!)}km away</strong>. If this is wrong, try selecting your city manually from the home page for more accurate results.
+            </p>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20">
@@ -141,7 +159,7 @@ export function ShopsList({ city, lat, lng, service: initialService }: ShopsList
         <div className="flex flex-col gap-6">
           {displayShops.map((shop, index) => (
             <div key={shop.id} className={`animate-in`} style={{ animationDelay: `${index * 0.1}s` }}>
-              <ShopCard shop={shop} distance={shop.distance} />
+              <ShopCard shop={shop} distance={shop.distance} userLat={lat} userLng={lng} />
             </div>
           ))}
 

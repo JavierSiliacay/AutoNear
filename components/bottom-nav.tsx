@@ -28,10 +28,13 @@ export function BottomNav() {
           </Link>
         )
       })}
-      <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+      <Link
+        href="/profile"
+        className={`flex flex-col items-center gap-1.5 transition-colors ${pathname.startsWith("/profile") ? "text-turbo-orange" : "text-muted-foreground"}`}
+      >
         <MaterialIcon name="account_circle" className="font-bold" />
         <span className="text-[10px] font-bold uppercase tracking-tighter">Profile</span>
-      </div>
+      </Link>
     </nav>
   )
 }

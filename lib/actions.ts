@@ -156,11 +156,22 @@ export async function updateShopRequestStatus(requestId: string, status: 'approv
   }
 
   if (status === 'approved') {
+    // Basic attempt to extract city from address string
+    const addr = request.address.toLowerCase();
+    const city = addr.includes("manila") ? "Manila" :
+      addr.includes("quezon city") ? "Quezon City" :
+        addr.includes("makati") ? "Makati" :
+          addr.includes("pasig") ? "Pasig" :
+            addr.includes("taguig") ? "Taguig" :
+              addr.includes("cebu") ? "Cebu City" :
+                addr.includes("davao") ? "Davao City" :
+                  addr.includes("cagayan de oro") || addr.includes("cdo") ? "Cagayan de Oro" : "Generic";
+
     const { error: insertError } = await supabase.from("shops").insert({
       name: request.shop_name,
       address: request.address,
-      city: "Cagayan de Oro",
-      province: "Misamis Oriental",
+      city: city,
+      province: city === "Cagayan de Oro" ? "Misamis Oriental" : "Philippines",
       is_verified: true,
       rating: 0,
       review_count: 0

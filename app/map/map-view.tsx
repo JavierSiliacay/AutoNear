@@ -71,7 +71,9 @@ export function MapView({ shops }: MapViewProps) {
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
       );
       const data = await response.json();
-      return data.locality || data.city || data.principalSubdivision || "Unknown Location";
+      const city = data.city || data.principalSubdivision || "";
+      const locality = data.locality || "";
+      return locality && city && locality !== city ? `${locality}, ${city}` : city || locality || "Unknown Location";
     } catch (err) {
       return "Selected Location";
     }
@@ -84,6 +86,30 @@ export function MapView({ shops }: MapViewProps) {
     setUserLocation({ lat, lng, address });
     setIsLocating(false);
   }
+
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) return;
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        const address = await fetchAddress(lat, lng);
+        setUserLocation({ lat, lng, address });
+        setIsLocating(false);
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }
+
+  useEffect(() => {
+    // Attempt auto-location once on mount
+    handleLocateMe();
+  }, []);
 
   const shopsWithCoords = shops.filter((s) => s.latitude && s.longitude)
 
@@ -128,14 +154,14 @@ export function MapView({ shops }: MapViewProps) {
 
         {selectedShop && (
           <ChangeView
-            center={[selectedShop.latitude! - 0.005, selectedShop.longitude!]}
+            center={[selectedShop.latitude! - 0.002, selectedShop.longitude!]} // Smaller offset
             zoom={15}
           />
         )}
 
         {userLocation && !selectedShop && (
           <ChangeView
-            center={[userLocation.lat - 0.005, userLocation.lng]}
+            center={[userLocation.lat - 0.002, userLocation.lng]} // Smaller offset
             zoom={15}
           />
         )}
@@ -217,9 +243,19 @@ export function MapView({ shops }: MapViewProps) {
         </div>
       )}
 
-      {/* Attribution */}
-      <div className="absolute top-20 right-4 z-[1000] glass px-2 py-1 rounded text-[8px] text-muted-foreground pointer-events-none">
-        OpenStreetMap &middot; CartoDB
+      {/* Attribution & Location Button */}
+      <div className="absolute top-20 right-4 z-[1000] flex flex-col gap-2 items-end">
+        <button
+          onClick={handleLocateMe}
+          disabled={isLocating}
+          className="w-12 h-12 glass shadow-2xl rounded-xl flex items-center justify-center text-electric-blue border border-white/10 hover:bg-electric-blue/10 transition-all active:scale-95 disabled:opacity-50"
+          title="Use My Current Location"
+        >
+          <MaterialIcon name={isLocating ? "autorenew" : "my_location"} className={isLocating ? "animate-spin" : ""} />
+        </button>
+        <div className="glass px-2 py-1 rounded text-[8px] text-muted-foreground pointer-events-none">
+          OpenStreetMap &middot; CartoDB
+        </div>
       </div>
     </main>
   )
