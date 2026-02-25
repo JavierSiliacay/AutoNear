@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MaterialIcon } from '@/components/material-icon';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -57,8 +57,8 @@ export default function ResetPasswordPage() {
 
                 {message.text && (
                     <div className={`p-4 rounded-xl text-sm font-bold text-center mb-6 animate-in fade-in ${message.type === 'error'
-                            ? 'bg-destructive/10 border border-destructive/20 text-destructive'
-                            : 'bg-green-500/10 border border-green-500/20 text-green-400'
+                        ? 'bg-destructive/10 border border-destructive/20 text-destructive'
+                        : 'bg-green-500/10 border border-green-500/20 text-green-400'
                         }`}>
                         {message.text}
                     </div>
