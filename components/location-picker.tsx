@@ -4,14 +4,22 @@ import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { MaterialIcon } from "./material-icon"
 import { PH_CITIES } from "@/lib/types"
+import { createClient } from "@/lib/supabase/client"
 
 export function LocationPicker() {
   const router = useRouter()
+  const supabase = createClient()
   const [city, setCity] = useState("")
   const [locating, setLocating] = useState(false)
   const [locationError, setLocationError] = useState("")
 
-  const handleGeolocation = useCallback(() => {
+  const handleGeolocation = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/login?message=salamat')
+      return
+    }
+
     if (!navigator.geolocation) {
       setLocationError("Geolocation is not supported by your browser.")
       return
@@ -73,7 +81,13 @@ export function LocationPicker() {
     )
   }, [router])
 
-  const handleExplore = () => {
+  const handleExplore = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/login?message=salamat')
+      return
+    }
+
     if (city) {
       const selectedCity = PH_CITIES.find(c => c.value === city);
       if (selectedCity) {

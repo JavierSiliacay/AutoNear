@@ -126,7 +126,6 @@ export async function submitShopRequest(formData: FormData) {
 
   return { success: true }
 }
-
 export async function getShopRequests() {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -140,6 +139,24 @@ export async function getShopRequests() {
   }
 
   return data
+}
+
+export async function getServiceRequests() {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("service_requests")
+    .select("*, shops(name)")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching service requests:", error)
+    return []
+  }
+
+  return data.map((req: any) => ({
+    ...req,
+    shop_name: req.shops?.name || "Unknown Shop"
+  }))
 }
 
 export async function updateShopRequestStatus(requestId: string, status: 'approved' | 'rejected', reason?: string) {

@@ -18,11 +18,7 @@ export async function GET(request: Request) {
 
     if (code) {
         const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.exchangeCodeForSession(code)
-
-        if (user?.email && ALLOWED_EMAILS.includes(user.email)) {
-            return NextResponse.redirect(`${origin}/admin`)
-        }
+        await supabase.auth.exchangeCodeForSession(code)
     }
 
     if (redirectTo) {

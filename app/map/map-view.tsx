@@ -7,6 +7,8 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MaterialIcon } from "@/components/material-icon"
 import type { Shop } from "@/lib/types"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 interface MapViewProps {
   shops: Shop[]
@@ -61,6 +63,8 @@ export function MapView({ shops }: MapViewProps) {
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number, address?: string } | null>(null)
   const [isLocating, setIsLocating] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
 
   const defaultCenter: [number, number] = [14.5995, 120.9842]
   const defaultZoom = 12
@@ -80,6 +84,12 @@ export function MapView({ shops }: MapViewProps) {
   }
 
   const handleMapClick = async (lat: number, lng: number) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/login?message=salamat')
+      return
+    }
+
     setSelectedShop(null); // Deselect shop if map is clicked
     setIsLocating(true);
     const address = await fetchAddress(lat, lng);
@@ -87,8 +97,16 @@ export function MapView({ shops }: MapViewProps) {
     setIsLocating(false);
   }
 
-  const handleLocateMe = () => {
+  const handleLocateMe = async (isAuto = false) => {
     if (!navigator.geolocation) return;
+
+    if (!isAuto) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login?message=salamat')
+        return
+      }
+    }
 
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
@@ -107,8 +125,8 @@ export function MapView({ shops }: MapViewProps) {
   }
 
   useEffect(() => {
-    // Attempt auto-location once on mount
-    handleLocateMe();
+    // Attempt auto-location once on mount without redirecting
+    handleLocateMe(true);
   }, []);
 
   const shopsWithCoords = shops.filter((s) => s.latitude && s.longitude)
@@ -246,7 +264,7 @@ export function MapView({ shops }: MapViewProps) {
       {/* Attribution & Location Button */}
       <div className="absolute top-20 right-4 z-[1000] flex flex-col gap-2 items-end">
         <button
-          onClick={handleLocateMe}
+          onClick={() => handleLocateMe(false)}
           disabled={isLocating}
           className="w-12 h-12 glass shadow-2xl rounded-xl flex items-center justify-center text-electric-blue border border-white/10 hover:bg-electric-blue/10 transition-all active:scale-95 disabled:opacity-50"
           title="Use My Current Location"

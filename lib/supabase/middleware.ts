@@ -41,16 +41,20 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAuthPage =
+  const isPublicPage =
+    request.nextUrl.pathname === '/' ||
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/register') ||
     request.nextUrl.pathname.startsWith('/forgot-password') ||
     request.nextUrl.pathname.startsWith('/reset-password') ||
     request.nextUrl.pathname.startsWith('/auth')
 
-  if (!user && !isAuthPage) {
+  if (!user && !isPublicPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    if (request.nextUrl.pathname.startsWith('/admin')) {
+      url.searchParams.set('message', 'admin_only')
+    }
     return NextResponse.redirect(url)
   }
 

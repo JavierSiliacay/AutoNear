@@ -44,7 +44,7 @@ export default async function AdminPage() {
     return (
         <div className="min-h-screen pb-32">
             <header className="sticky top-0 z-50 glass border-b border-foreground/5">
-                <div className="flex items-center justify-center px-5 h-16 max-w-lg mx-auto">
+                <div className="flex items-center justify-center px-5 h-16 w-full max-w-7xl mx-auto">
                     <div className="flex flex-col items-center">
                         <span className="text-[10px] font-black text-turbo-orange uppercase tracking-[0.3em]">Control Center</span>
                         <span className="text-sm font-black text-foreground italic uppercase tracking-tight">Admin Dashboard</span>
@@ -52,7 +52,7 @@ export default async function AdminPage() {
                 </div>
             </header>
 
-            <main className="max-w-lg mx-auto p-6">
+            <main className="w-full max-w-7xl mx-auto p-6">
                 <AdminQueue />
             </main>
 
