@@ -38,6 +38,17 @@ export interface ServiceRequest {
   vehicle_info: string | null
   service_type: string | null
   message: string | null
+  status: 'pending' | 'on going' | 'completed'
+  customer_email: string | null
+  created_at: string
+}
+
+export interface ChatMessage {
+  id: string
+  request_id: string
+  sender_email: string
+  sender_role: 'admin' | 'customer'
+  content: string
   created_at: string
 }
 

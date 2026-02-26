@@ -51,8 +51,10 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && !isPublicPage) {
     const url = request.nextUrl.clone()
+    const next = url.pathname + url.search
     url.pathname = '/login'
-    if (request.nextUrl.pathname.startsWith('/admin')) {
+    url.searchParams.set('next', next)
+    if (next.startsWith('/admin')) {
       url.searchParams.set('message', 'admin_only')
     }
     return NextResponse.redirect(url)

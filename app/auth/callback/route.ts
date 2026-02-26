@@ -1,14 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
-    // The `/auth/callback` route is required for the server-side auth flow
-    // to exchange an auth code for the user's session.
-    // https://supabase.com/docs/guides/auth/server-side/nextjs
     const requestUrl = new URL(request.url)
     const code = requestUrl.searchParams.get('code')
     const origin = requestUrl.origin
-    const redirectTo = requestUrl.searchParams.get('redirect_to')?.toString()
+    const redirectTo = requestUrl.searchParams.get('redirect_to')
 
     const ALLOWED_EMAILS = [
         "siliacay.javier@gmail.com",
@@ -16,15 +13,41 @@ export async function GET(request: Request) {
         "javiersiliacay12@gmail.com"
     ]
 
+    // Next.js Route Handlers need to handle cookies manually with NextResponse
+    const response = NextResponse.redirect(`${origin}/profile`)
+
     if (code) {
-        const supabase = await createClient()
-        await supabase.auth.exchangeCodeForSession(code)
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    getAll() {
+                        const cookieHeader = request.headers.get('cookie') ?? ''
+                        return cookieHeader.split(';').map(c => {
+                            const [name, ...value] = c.trim().split('=')
+                            return { name, value: value.join('=') }
+                        })
+                    },
+                    setAll(cookiesToSet) {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            response.cookies.set(name, value, options)
+                        )
+                    },
+                },
+            }
+        )
+
+        const { data: { user } } = await supabase.auth.exchangeCodeForSession(code)
+
+        if (user?.email) {
+            const isAdmin = ALLOWED_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase())
+
+            // Re-configure response based on logic
+            let target = redirectTo || (isAdmin ? '/admin' : '/profile')
+            response.headers.set('Location', `${origin}${target}`)
+        }
     }
 
-    if (redirectTo) {
-        return NextResponse.redirect(`${origin}${redirectTo}`)
-    }
-
-    // URL to redirect to after sign in process completes
-    return NextResponse.redirect(`${origin}/profile`)
+    return response
 }

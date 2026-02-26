@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { revalidatePath } from "next/cache"
 import type { Shop } from "./types"
 
 export async function getShops(options?: {
@@ -64,10 +65,13 @@ export async function submitServiceRequest(formData: FormData) {
     return { success: false, error: "Please fill in all required fields." }
   }
 
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { error } = await supabase.from("service_requests").insert({
     shop_id: shopId,
     customer_name: customerName,
     customer_phone: customerPhone,
+    customer_email: user?.email || null,
     vehicle_info: vehicleInfo || null,
     service_type: serviceType || null,
     message: message || null,
@@ -159,6 +163,58 @@ export async function getServiceRequests() {
   }))
 }
 
+export async function getUsersServiceRequests(email: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("service_requests")
+    .select("*, shops(name)")
+    .eq("customer_email", email)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching user's service requests:", error)
+    return []
+  }
+
+  return data.map((req: any) => ({
+    ...req,
+    shop_name: req.shops?.name || "Unknown Shop"
+  }))
+}
+
+export async function getMessages(requestId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("service_request_messages")
+    .select("*")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching messages:", error)
+    return []
+  }
+
+  return data
+}
+
+export async function sendChatMessage(requestId: string, content: string, senderRole: 'admin' | 'customer', senderEmail: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from("service_request_messages").insert({
+    request_id: requestId,
+    content,
+    sender_role: senderRole,
+    sender_email: senderEmail
+  })
+
+  if (error) {
+    console.error("Error sending message:", error)
+    return { success: false, error: "Failed to send message." }
+  }
+
+  return { success: true }
+}
+
 export async function updateShopRequestStatus(requestId: string, status: 'approved' | 'rejected', reason?: string) {
   const supabase = await createClient()
 
@@ -209,5 +265,33 @@ export async function updateShopRequestStatus(requestId: string, status: 'approv
     return { success: false, error: "Failed to update request status." }
   }
 
+  return { success: true }
+}
+
+export async function deleteServiceRequest(requestId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from("service_requests").delete().eq("id", requestId)
+
+  if (error) {
+    console.error("Error deleting service request:", error)
+    return { success: false, error: "Failed to delete request." }
+  }
+
+  revalidatePath('/admin')
+  revalidatePath('/profile')
+  return { success: true }
+}
+
+export async function updateServiceRequestStatus(requestId: string, status: 'pending' | 'on going' | 'completed') {
+  const supabase = await createClient()
+  const { error } = await supabase.from("service_requests").update({ status }).eq("id", requestId)
+
+  if (error) {
+    console.error("Error updating service request status:", error)
+    return { success: false, error: "Failed to update status." }
+  }
+
+  revalidatePath('/admin')
+  revalidatePath('/profile')
   return { success: true }
 }

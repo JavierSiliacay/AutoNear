@@ -23,7 +23,7 @@ export default async function AdminPage() {
         redirect("/login")
     }
 
-    if (!user.email || !ALLOWED_EMAILS.includes(user.email)) {
+    if (!user.email || !ALLOWED_EMAILS.some(e => e.toLowerCase() === user.email?.toLowerCase())) {
         return (
             <div className="min-h-screen bg-midnight flex flex-col items-center justify-center p-6 text-center">
                 <div className="w-20 h-20 bg-destructive/10 rounded-3xl flex items-center justify-center text-destructive mb-6">
@@ -53,7 +53,7 @@ export default async function AdminPage() {
             </header>
 
             <main className="w-full max-w-7xl mx-auto p-6">
-                <AdminQueue />
+                <AdminQueue adminEmail={user.email || ''} />
             </main>
 
             <BottomNav />
