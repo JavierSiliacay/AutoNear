@@ -15,6 +15,8 @@
 ![Zod](https://img.shields.io/badge/Zod-3068B7?style=for-the-badge&logo=zod&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
 ![PNPM](https://img.shields.io/badge/pnpm-%234a4a4a.svg?style=for-the-badge&logo=pnpm&logoColor=f69220)
+![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white)
+![Upstash](https://img.shields.io/badge/Upstash-00E9A3?style=for-the-badge&logo=upstash&logoColor=black)
 
 </div>
 
@@ -46,6 +48,7 @@ To provide every Filipino vehicle owner with the peace of mind that expert autom
 - **UI Components**: [shadcn/ui](https://ui.shadcn.com/), [Radix UI](https://www.radix-ui.com/), [Lucide React](https://lucide.dev/)
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
 - **Forms & Validation**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
+- **Rate Limiting**: [Upstash Redis](https://upstash.com/) (@upstash/ratelimit)
 - **Deployment**: [Vercel](https://vercel.com/)
 - **Package Manager**: [PNPM](https://pnpm.io/)
 
@@ -76,6 +79,8 @@ To provide every Filipino vehicle owner with the peace of mind that expert autom
     NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
     NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
     SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+    UPSTASH_REDIS_REST_URL=your_upstash_redis_url
+    UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
     ```
 
 4.  **Database Setup:**
