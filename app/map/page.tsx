@@ -1,11 +1,13 @@
 import Link from "next/link"
-import { getShops } from "@/lib/actions"
+import { getMechanics } from "@/lib/actions"
 import { BottomNav } from "@/components/bottom-nav"
 import { MaterialIcon } from "@/components/material-icon"
 import MapViewClient from "./map-view-client"
 
+export const dynamic = "force-dynamic"
+
 export default async function MapPage() {
-  const shops = await getShops()
+  const mechanics = await getMechanics()
 
   return (
     <div className="h-screen flex flex-col relative overflow-hidden">
@@ -14,14 +16,14 @@ export default async function MapPage() {
         <div className="max-w-lg mx-auto flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-turbo-orange rounded flex items-center justify-center text-midnight">
-                <MaterialIcon name="minor_crash" className="font-bold text-xl" />
+              <div className="w-8 h-8 bg-turbo-orange rounded-lg overflow-hidden shadow-lg shadow-turbo-orange/20">
+                <img src="/logo.png" alt="TaraFix Logo" className="w-full h-full object-cover" />
               </div>
-              <span className="text-foreground font-extrabold text-lg tracking-tight italic">AutoNear</span>
+              <span className="text-foreground font-extrabold text-lg tracking-tight italic">Tara<span className="text-electric-blue">Fix</span></span>
             </Link>
 
             <Link
-              href="/shops"
+              href="/mechanics"
               className="w-10 h-10 glass rounded-full flex items-center justify-center text-foreground hover:bg-white/10 transition-colors shadow-2xl"
             >
               <MaterialIcon name="close" />
@@ -30,7 +32,7 @@ export default async function MapPage() {
         </div>
       </header>
 
-      <MapViewClient shops={shops} />
+      <MapViewClient mechanics={mechanics} />
 
       <BottomNav />
     </div>

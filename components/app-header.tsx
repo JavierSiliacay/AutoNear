@@ -20,10 +20,10 @@ export function AppHeader({ rightAction, title }: AppHeaderProps) {
           </div>
         ) : (
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-turbo-orange rounded-lg flex items-center justify-center text-midnight">
-              <MaterialIcon name="minor_crash" className="font-bold text-2xl" />
+            <div className="w-9 h-9 bg-turbo-orange rounded-xl overflow-hidden shadow-lg shadow-turbo-orange/20">
+              <img src="/logo.png" alt="TaraFix Logo" className="w-full h-full object-cover" />
             </div>
-            <span className="text-foreground font-extrabold text-xl tracking-tight italic">AutoNear</span>
+            <span className="text-foreground font-extrabold text-xl tracking-tight italic">Tara<span className="text-electric-blue">Fix</span></span>
           </Link>
         )}
         {rightAction}

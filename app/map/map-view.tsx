@@ -1,17 +1,17 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MaterialIcon } from "@/components/material-icon"
-import type { Shop } from "@/lib/types"
+import type { Shop, Mechanic } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
 interface MapViewProps {
-  shops: Shop[]
+  mechanics: Mechanic[]
 }
 
 function MapEvents({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
@@ -31,40 +31,52 @@ function ChangeView({ center, zoom }: { center: [number, number], zoom: number }
   return null;
 }
 
-export function MapView({ shops }: MapViewProps) {
+function MapContent({ children }: { children: React.ReactNode }) {
+  const map = useMap();
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (map) {
+      // Small timeout to ensure DOM container is fully sized and ready for Leaflet
+      const timer = setTimeout(() => setIsReady(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [map]);
+
+  return isReady ? <>{children}</> : null;
+}
+
+export function MapView({ mechanics }: MapViewProps) {
   // Define icons inside the component to avoid SSR errors
-  const shopIcon = L.divIcon({
+  const [selectedMechanic, setSelectedMechanic] = useState<Mechanic | null>(null)
+  const [localMechanics, setLocalMechanics] = useState<Mechanic[]>(mechanics)
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number, address?: string } | null>(null)
+  const [isLocating, setIsLocating] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
+
+  const mechanicIcon = useMemo(() => isMounted ? L.divIcon({
     className: 'custom-div-icon',
     html: `<div class="w-8 h-8 bg-electric-blue rounded-full flex items-center justify-center text-midnight shadow-[0_0_15px_rgba(0,209,255,0.4)] border-2 border-white/20">
-            <span class="material-symbols-outlined text-lg font-bold">home_repair_service</span>
+            <span class="material-symbols-outlined text-lg font-bold">build</span>
           </div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 32]
-  })
+  }) : null, [isMounted])
 
-  const selectedShopIcon = L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div class="w-10 h-10 bg-turbo-orange rounded-full flex items-center justify-center text-midnight shadow-[0_0_20px_rgba(255,95,0,0.6)] border-2 border-white/30 scale-110">
-            <span class="material-symbols-outlined text-xl font-bold">home_repair_service</span>
-          </div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 40]
-  })
-
-  const userIcon = L.divIcon({
+  const userIcon = useMemo(() => isMounted ? L.divIcon({
     className: 'custom-div-icon',
     html: `<div class="w-8 h-8 bg-white rounded-full flex items-center justify-center text-turbo-orange shadow-[0_0_15px_rgba(255,255,255,0.5)] border-2 border-turbo-orange animate-bounce">
             <span class="material-symbols-outlined text-lg font-bold">person_pin_circle</span>
           </div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 32]
-  })
+  }) : null, [isMounted])
 
-  const [selectedShop, setSelectedShop] = useState<Shop | null>(null)
-  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number, address?: string } | null>(null)
-  const [isLocating, setIsLocating] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const defaultCenter: [number, number] = [14.5995, 120.9842]
   const defaultZoom = 12
@@ -90,7 +102,7 @@ export function MapView({ shops }: MapViewProps) {
       return
     }
 
-    setSelectedShop(null); // Deselect shop if map is clicked
+    setSelectedMechanic(null); // Deselect if map is clicked
     setIsLocating(true);
     const address = await fetchAddress(lat, lng);
     setUserLocation({ lat, lng, address });
@@ -125,11 +137,51 @@ export function MapView({ shops }: MapViewProps) {
   }
 
   useEffect(() => {
-    // Attempt auto-location once on mount without redirecting
-    handleLocateMe(true);
-  }, []);
+    setLocalMechanics(mechanics);
+  }, [mechanics]);
 
-  const shopsWithCoords = shops.filter((s) => s.latitude && s.longitude)
+  useEffect(() => {
+    console.log("Setting up Realtime for Mechanics...");
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for ALL events for better debugging
+          schema: 'public',
+          table: 'mechanics'
+        },
+        (payload) => {
+          console.log("Realtime Update Received:", payload);
+          const updatedMechanic = payload.new as Mechanic;
+          
+          if (!updatedMechanic || !updatedMechanic.id) return;
+
+          setLocalMechanics((prev) => 
+            prev.map((m) => m.id === updatedMechanic.id ? { ...m, ...updatedMechanic } : m)
+          );
+          
+          // Update selected mechanic if matches
+          setSelectedMechanic(prev => {
+            if (prev?.id === updatedMechanic.id) {
+                return { ...prev, ...updatedMechanic };
+            }
+            return prev;
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log("Realtime Subscription Status:", status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
+  const mechanicsWithCoords = localMechanics.filter((m) => m.latitude && m.longitude)
+
+  if (!isMounted) return null
 
   return (
     <main className="flex-1 relative w-full h-full bg-slate-900">
@@ -139,50 +191,69 @@ export function MapView({ shops }: MapViewProps) {
         style={{ height: '100%', width: '100%', background: '#0a0f18' }}
         zoomControl={false}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        />
-
-        <MapEvents onMapClick={handleMapClick} />
-
-        {/* Shop Markers */}
-        {shopsWithCoords.map((shop) => (
-          <Marker
-            key={shop.id}
-            position={[shop.latitude!, shop.longitude!]}
-            icon={selectedShop?.id === shop.id ? selectedShopIcon : shopIcon}
-            eventHandlers={{
-              click: (e) => {
-                L.DomEvent.stopPropagation(e);
-                setSelectedShop(shop);
-                setUserLocation(null);
-              },
-            }}
+        <MapContent>
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
-        ))}
 
-        {/* User Marker */}
-        {userLocation && (
-          <Marker
-            position={[userLocation.lat, userLocation.lng]}
-            icon={userIcon}
-          />
-        )}
+          <MapEvents onMapClick={handleMapClick} />
 
-        {selectedShop && (
-          <ChangeView
-            center={[selectedShop.latitude! - 0.002, selectedShop.longitude!]} // Smaller offset
-            zoom={15}
-          />
-        )}
+          {/* Mechanic Markers */}
+          {mechanicsWithCoords.map((mechanic) => {
+            const isSelected = selectedMechanic?.id === mechanic.id;
+            return (
+              <Marker
+                key={`${mechanic.id}-${mechanic.is_available}`}
+                position={[mechanic.latitude!, mechanic.longitude!]}
+                icon={L.divIcon({
+                  className: 'custom-div-icon',
+                  html: `
+                    <div class="relative ${isSelected ? 'w-10 h-10' : 'w-8 h-8'} ${isSelected ? 'bg-turbo-orange' : 'bg-white'} rounded-full flex items-center justify-center border-2 border-white/20 overflow-hidden transition-all ${isSelected ? 'scale-110 shadow-[0_0_20px_rgba(255,95,0,0.6)]' : 'shadow-[0_0_15px_rgba(255,255,255,0.3)]'}">
+                      ${mechanic.image_url 
+                        ? `<img src="${mechanic.image_url}" class="w-full h-full object-cover" referrerPolicy="no-referrer" />` 
+                        : `<div class="w-full h-full flex items-center justify-center bg-gray-100">
+                            <span class="material-symbols-outlined ${isSelected ? 'text-2xl' : 'text-xl'} text-gray-400 font-bold">person</span>
+                           </div>`
+                      }
+                      <div class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${mechanic.is_available ? 'bg-green-500' : 'bg-red-500'}"></div>
+                    </div>`,
+                  iconSize: isSelected ? [40, 40] : [32, 32],
+                  iconAnchor: isSelected ? [20, 40] : [16, 32]
+                })}
+                eventHandlers={{
+                  click: (e) => {
+                    L.DomEvent.stopPropagation(e);
+                    setSelectedMechanic(mechanic);
+                    setUserLocation(null);
+                  },
+                }}
+              />
+            );
+          })}
 
-        {userLocation && !selectedShop && (
-          <ChangeView
-            center={[userLocation.lat - 0.002, userLocation.lng]} // Smaller offset
-            zoom={15}
-          />
-        )}
+          {/* User Marker */}
+          {userLocation && userIcon && (
+            <Marker
+              position={[userLocation.lat, userLocation.lng]}
+              icon={userIcon}
+            />
+          )}
+
+          {selectedMechanic && (
+            <ChangeView
+              center={[selectedMechanic.latitude! - 0.002, selectedMechanic.longitude!]} // Smaller offset
+              zoom={15}
+            />
+          )}
+
+          {userLocation && !selectedMechanic && (
+            <ChangeView
+              center={[userLocation.lat - 0.002, userLocation.lng]} // Smaller offset
+              zoom={15}
+            />
+          )}
+        </MapContent>
       </MapContainer>
 
       {/* Floating Instructions */}
@@ -195,7 +266,7 @@ export function MapView({ shops }: MapViewProps) {
       </div>
 
       {/* User Location Info Card */}
-      {userLocation && !selectedShop && (
+      {userLocation && !selectedMechanic && (
         <div className="absolute bottom-28 left-0 right-0 px-6 z-[1000]">
           <div className="glass-card rounded-2xl p-5 border-electric-blue/30 max-w-sm mx-auto shadow-2xl animate-in">
             <div className="flex items-center gap-4 mb-4">
@@ -210,54 +281,100 @@ export function MapView({ shops }: MapViewProps) {
               </div>
             </div>
             <Link
-              href={`/shops?lat=${userLocation.lat}&lng=${userLocation.lng}`}
+              href={`/mechanics?lat=${userLocation.lat}&lng=${userLocation.lng}`}
               className="w-full h-12 bg-electric-blue text-midnight font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
             >
-              <span>Find Shops Nearby</span>
+              <span>Find Mechanics Nearby</span>
               <MaterialIcon name="arrow_forward" className="text-sm" />
             </Link>
           </div>
         </div>
       )}
 
-      {/* Selected Shop Card Overlay */}
-      {selectedShop && (
+      {/* Selected Mechanic Card Overlay */}
+      {selectedMechanic && (
         <div className="absolute bottom-28 left-0 right-0 px-6 z-[1000]">
-          <Link href={`/shops/${selectedShop.id}`}>
+          <div 
+            onClick={() => router.push(`/mechanics/${selectedMechanic.id}`)}
+            className="cursor-pointer"
+          >
             <div className="glass-card rounded-2xl p-5 border-turbo-orange/30 max-w-sm mx-auto shadow-2xl animate-in">
               <div className="flex flex-col gap-4">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-4">
+                  {selectedMechanic.image_url && (
+                    <div className="w-14 h-14 rounded-xl overflow-hidden border border-turbo-orange/30 shrink-0">
+                      <img src={selectedMechanic.image_url} alt={selectedMechanic.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="bg-turbo-orange/20 text-turbo-orange text-[9px] font-black uppercase px-1.5 py-0.5 rounded">
-                        Verified
+                        PRO MECHANIC
                       </span>
                       <span className="text-muted-foreground text-[10px] font-bold truncate">
-                        {selectedShop.city}
+                        {selectedMechanic.city}
                       </span>
                     </div>
-                    <h4 className="text-foreground font-bold text-xl leading-tight truncate">{selectedShop.name}</h4>
+                    <h4 className="text-foreground font-bold text-xl leading-tight truncate">{selectedMechanic.name}</h4>
                   </div>
-                  <div className="flex items-center text-turbo-orange shrink-0 bg-background/50 px-2 py-1 rounded-lg border border-white/5">
-                    <MaterialIcon name="star" className="text-sm" filled />
-                    <span className="text-sm font-bold ml-1 text-foreground">
-                      {Number(selectedShop.rating).toFixed(1)}
-                    </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center text-turbo-orange shrink-0 bg-background/50 px-2 py-1 rounded-lg border border-white/5">
+                      <MaterialIcon name="star" className="text-sm" filled />
+                      <span className="text-sm font-bold ml-1 text-foreground">
+                        {Number(selectedMechanic.rating).toFixed(1)}
+                      </span>
+                    </div>
+                    <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${
+                      selectedMechanic.is_available 
+                        ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                        : 'bg-red-500/10 text-red-500 border-red-500/20'
+                    }`}>
+                      {selectedMechanic.is_available ? 'Available' : 'Unavailable'}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <div className="flex flex-col gap-3 pt-3 border-t border-white/5 mt-1">
                   <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                    <MaterialIcon name="location_on" className="text-xs" />
-                    {selectedShop.barangay}, {selectedShop.city}
+                    <MaterialIcon name="verified" className="text-xs text-electric-blue" />
+                    Verified Specialist
                   </p>
-                  <span className="text-turbo-orange font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
-                    Details <MaterialIcon name="chevron_right" className="text-xs" />
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (selectedMechanic.is_available) {
+                          router.push(`/mechanics/${selectedMechanic.id}`);
+                        }
+                      }}
+                      disabled={!selectedMechanic.is_available}
+                      className={`flex-1 h-9 rounded-lg flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                        selectedMechanic.is_available 
+                          ? 'bg-turbo-orange text-midnight hover:scale-105' 
+                          : 'bg-white/5 text-muted-foreground border border-white/10 cursor-not-allowed opacity-50'
+                      }`}
+                    >
+                      {selectedMechanic.is_available ? (
+                        <>Book Now <MaterialIcon name="chevron_right" className="text-[10px]" /></>
+                      ) : (
+                        <>Currently Offline</>
+                      )}
+                    </button>
+                    <a 
+                      href={`https://www.google.com/maps?q=${selectedMechanic.latitude},${selectedMechanic.longitude}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 h-9 glass rounded-lg flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-widest text-foreground hover:bg-white/10 border border-white/5 transition-colors whitespace-nowrap"
+                    >
+                      <MaterialIcon name="map" className="text-[10px] text-electric-blue" />
+                      Google Maps
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
-          </Link>
+          </div>
         </div>
       )}
 

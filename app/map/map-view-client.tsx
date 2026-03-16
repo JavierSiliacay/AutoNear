@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import type { Shop } from "@/lib/types"
+import type { Mechanic } from "@/lib/types"
 
 const MapView = dynamic(() => import("./map-view").then((mod) => mod.MapView), {
     ssr: false,
@@ -12,6 +12,6 @@ const MapView = dynamic(() => import("./map-view").then((mod) => mod.MapView), {
     ),
 })
 
-export default function MapViewClient({ shops }: { shops: Shop[] }) {
-    return <MapView shops={shops} />
+export default function MapViewClient({ mechanics }: { mechanics: Mechanic[] }) {
+    return <MapView mechanics={mechanics} />
 }

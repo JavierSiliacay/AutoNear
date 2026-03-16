@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation"
 
 const navItems = [
   { href: "/", icon: "home_app_logo", label: "Home" },
-  { href: "/shops", icon: "search", label: "Explore" },
+  { href: "/mechanics", icon: "search", label: "Explore" },
   { href: "/map", icon: "explore", label: "Map" },
   { href: "/profile", icon: "account_circle", label: "Profile" },
 ]

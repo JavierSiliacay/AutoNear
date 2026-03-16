@@ -18,6 +18,26 @@ export interface Shop {
   created_at: string
 }
 
+export interface Mechanic {
+  id: string
+  name: string
+  email: string
+  bio: string | null
+  specializations: string[]
+  barangay: string | null
+  city: string
+  province: string
+  latitude: number | null
+  longitude: number | null
+  phone: string | null
+  image_url: string | null
+  rating: number
+  review_count: number
+  is_verified: boolean
+  is_available: boolean
+  created_at: string
+}
+
 export interface ShopRequest {
   id: string
   shop_name: string
@@ -30,16 +50,50 @@ export interface ShopRequest {
   created_at: string
 }
 
+export interface MechanicRequest {
+  id: string
+  full_name: string
+  contact_number: string
+  email: string
+  specializations: string[]
+  experience_years: number
+  valid_id_url: string
+  google_maps_pin_lat: number
+  google_maps_pin_lng: number
+  status: 'pending' | 'approved' | 'rejected'
+  rejection_reason: string | null
+  created_at: string
+}
+
 export interface ServiceRequest {
   id: string
-  shop_id: string
+  mechanic_id: string
   customer_name: string
   customer_phone: string
   vehicle_info: string | null
   service_type: string | null
   message: string | null
-  status: 'pending' | 'on going' | 'completed'
+  status: 'pending' | 'accepted' | 'on_my_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled'
   customer_email: string | null
+  customer_avatar_url: string | null
+  created_at: string
+  mechanic_name?: string
+  mechanic_image_url?: string | null
+  quote_amount?: number | null
+  quote_description?: string | null
+  quote_status?: 'pending' | 'accepted' | 'rejected' | null
+  quote_updated_at?: string | null
+  is_reviewed?: boolean
+}
+
+export interface Review {
+  id: string
+  request_id: string
+  mechanic_id: string
+  customer_name: string
+  customer_avatar_url: string | null
+  rating: number
+  comment: string | null
   created_at: string
 }
 
@@ -47,8 +101,10 @@ export interface ChatMessage {
   id: string
   request_id: string
   sender_email: string
-  sender_role: 'admin' | 'customer'
+  sender_role: 'admin' | 'customer' | 'mechanic'
   content: string
+  image_url?: string | null
+  storage_purged?: boolean
   created_at: string
 }
 

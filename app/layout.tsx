@@ -8,8 +8,8 @@ import 'leaflet/dist/leaflet.css'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'AutoNear - Find Nearby Auto Shops in the Philippines',
-  description: 'Connect with trusted local mechanics, vulcanizing, tire, oil change, and car wash shops near you.',
+  title: 'TaraFix - Find Freelance Mechanics in the Philippines',
+  description: 'Connect with expert freelance mechanics and technicians for on-demand, on-site auto repairs anywhere in the Philippines.',
 }
 
 export const viewport: Viewport = {
@@ -17,6 +17,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
 }
+
+import { AvatarSync } from "@/components/avatar-sync"
 
 export default function RootLayout({
   children,
@@ -31,7 +33,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-sans antialiased min-h-screen">{children}</body>
+      <body className="font-sans antialiased min-h-screen">
+        <AvatarSync />
+        {children}
+      </body>
     </html>
   )
 }
