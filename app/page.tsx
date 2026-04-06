@@ -59,7 +59,7 @@ export default function HomePage() {
         rightAction={
           <Link href="/register-mechanic">
             <span className="text-[10px] font-black uppercase tracking-widest text-turbo-orange border border-turbo-orange/30 px-3 py-1.5 rounded-full hover:bg-turbo-orange hover:text-midnight transition-all cursor-pointer">
-              Register
+              Register as mechanic
             </span>
           </Link>
         }
