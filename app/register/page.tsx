@@ -68,7 +68,7 @@ export default function RegisterPage() {
                         <MaterialIcon name="person_add" className="text-4xl" />
                     </div>
                     <h1 className="text-2xl font-black text-foreground uppercase tracking-tight">Create Account</h1>
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">Join the AutoNear Network</p>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">Join the TaraFix Network</p>
                 </div>
 
                 {message.text && (
