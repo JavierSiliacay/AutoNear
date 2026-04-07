@@ -8,7 +8,6 @@ export const dynamic = "force-dynamic"
 
 const ALLOWED_EMAILS = [
     "siliacay.javier@gmail.com",
-    "javiersiliacaysiliacay1234@gmail.com",
     "kacaballes03539@liceo.edu.ph",
     "glloydn.22@gmail.com",
     "javiersiliacay12@gmail.com"
