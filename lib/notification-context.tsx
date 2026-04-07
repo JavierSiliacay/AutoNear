@@ -22,6 +22,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const activeChatIdRef = useRef<string | null>(null);
     const userEmailRef = useRef<string | null>(null);
     const myRequestIdsRef = useRef<Set<string>>(new Set());
+    const mechanicProfileRef = useRef<any>(null);
+    const lastAudioPlayRef = useRef<number>(0);
+    const processedMessageIdsRef = useRef<Set<string>>(new Set());
     const supabase = createClient();
 
     const VAPID_PUBLIC_KEY = "BO30rV39OUGCdyHYEqkQ7dlD4xvCj8TE8MYCOVyyTEohFCkq2JHlAfKsOn60ZXaA5n6oBTvbCsCtmCpqoNMIuF4";
@@ -49,97 +52,113 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         
         let globalChannel: any = null;
 
-        const setupSubscription = (email: string) => {
-            if (globalChannel) supabase.removeChannel(globalChannel);
+    const setupSubscription = (email: string) => {
+        if (globalChannel) {
+            supabase.removeChannel(globalChannel);
+        }
 
-            globalChannel = supabase
-                .channel('global-notifications')
-                // 1. Listen for MY NEW Service Requests (to update our watchlist)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'INSERT',
-                        schema: 'public',
-                        table: 'service_requests'
-                    },
-                    (payload) => {
-                        const newReq = payload.new as any;
-                        if (newReq.customer_email === userEmailRef.current || newReq.mechanic_email === userEmailRef.current) {
-                            myRequestIdsRef.current.add(newReq.id);
-                        }
+        // Use a UNIQUE channel name per user to prevent crosstalk
+        globalChannel = supabase
+            .channel(`notifications:${email.replace(/[^a-zA-Z0-9]/g, '_')}`)
+            // 1. Listen for MY NEW Service Requests (to update our watchlist)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'service_requests'
+                },
+                (payload) => {
+                    const newReq = payload.new as any;
+                    if (newReq.customer_email === userEmailRef.current || newReq.mechanic_id === mechanicProfileRef?.current?.id) {
+                        myRequestIdsRef.current.add(newReq.id);
                     }
-                )
-                // 2. Listen for messages
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'INSERT',
-                        schema: 'public',
-                        table: 'service_request_messages'
-                    },
-                    (payload) => {
-                        const newMsg = payload.new as ChatMessage;
-                        
-                        // ONLY trigger if the message belongs to ONE OF MY REQUESTS
-                        // and I am NOT the sender, and it's not the active chat
-                        const isForMe = myRequestIdsRef.current.has(newMsg.request_id);
-                        const isNotFromMe = newMsg.sender_email !== userEmailRef.current;
-                        const isNotActive = activeChatIdRef.current !== newMsg.request_id;
+                }
+            )
+            // 2. Listen for messages
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'service_request_messages'
+                },
+                (payload) => {
+                    const newMsg = payload.new as ChatMessage;
+                    
+                    // Prevention: don't process same message twice if realtime double-fires
+                    if (processedMessageIdsRef.current.has(newMsg.id)) return;
+                    processedMessageIdsRef.current.add(newMsg.id);
 
-                        if (isForMe && isNotFromMe && isNotActive) {
-                            setUnreadCounts(prev => ({
-                                ...prev,
-                                [newMsg.request_id]: (prev[newMsg.request_id] || 0) + 1
-                            }));
-                            
+                    // ONLY trigger if the message belongs to ONE OF MY REQUESTS
+                    // and I am NOT the sender, and it's not the active chat
+                    const isForMe = myRequestIdsRef.current.has(newMsg.request_id);
+                    const isNotFromMe = newMsg.sender_email !== userEmailRef.current;
+                    const isNotActive = activeChatIdRef.current !== newMsg.request_id;
+
+                    if (isForMe && isNotFromMe && isNotActive) {
+                        setUnreadCounts(prev => ({
+                            ...prev,
+                            [newMsg.request_id]: (prev[newMsg.request_id] || 0) + 1
+                        }));
+                        
+                        // Audio Debouncing: Don't spam the user with sounds if 7 messages arrive at once
+                        const now = Date.now();
+                        if (now - lastAudioPlayRef.current > 1500) {
                             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
                             audio.play().catch(() => {});
+                            lastAudioPlayRef.current = now;
                         }
                     }
-                )
-                .subscribe();
-        };
+                }
+            )
+            .subscribe();
+    };
 
-        const init = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user?.email) {
-                userEmailRef.current = user.email;
-                setUserEmail(user.email);
-                
-                // 1. Get Mechanic ID if it exists
-                const { data: mechanic } = await supabase
-                    .from('mechanics')
-                    .select('id')
-                    .eq('email', user.email)
-                    .maybeSingle();
+    const init = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        // Sanity Flush: Clear previous user data if switching accounts in a SPA
+        myRequestIdsRef.current = new Set();
+        processedMessageIdsRef.current = new Set();
+        setUnreadCounts({});
 
-                // 2. Fetch our request IDs initially using Email OR Mechanic ID
-                let query = supabase
+        if (user?.email) {
+            userEmailRef.current = user.email;
+            setUserEmail(user.email);
+            
+            // 1. Get Mechanic ID if it exists
+            const { data: mechanic } = await supabase
+                .from('mechanics')
+                .select('id')
+                .eq('email', user.email)
+                .maybeSingle();
+
+            if (mechanic) mechanicProfileRef.current = mechanic;
+
+            // 2. Fetch our request IDs initially
+            const { data: custRequests } = await supabase
+                .from('service_requests')
+                .select('id')
+                .eq('customer_email', user.email);
+            
+            let allIds = (custRequests || []).map(r => r.id);
+
+            if (mechanic) {
+                const { data: mechRequests } = await supabase
                     .from('service_requests')
                     .select('id')
-                    .eq('customer_email', user.email);
+                    .eq('mechanic_id', mechanic.id);
                 
-                if (mechanic) {
-                    // If they are a mechanic, also fetch where they are the provider
-                    const { data: custRequests } = await query;
-                    const { data: mechRequests } = await supabase
-                        .from('service_requests')
-                        .select('id')
-                        .eq('mechanic_id', mechanic.id);
-                    
-                    const allIds = [
-                        ...(custRequests || []).map(r => r.id),
-                        ...(mechRequests || []).map(r => r.id)
-                    ];
-                    myRequestIdsRef.current = new Set(allIds);
-                } else {
-                    const { data: custRequests } = await query;
-                    myRequestIdsRef.current = new Set((custRequests || []).map(r => r.id));
+                if (mechRequests) {
+                    allIds = [...allIds, ...mechRequests.map(r => r.id)];
                 }
-
-                setupSubscription(user.email);
             }
-        };
+
+            myRequestIdsRef.current = new Set(allIds);
+            setupSubscription(user.email);
+        }
+    };
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             const email = session?.user?.email || null;
