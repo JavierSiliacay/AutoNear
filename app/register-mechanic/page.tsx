@@ -4,8 +4,36 @@ import { MechanicRegistrationForm } from "@/components/mechanic-registration-for
 import { BottomNav } from "@/components/bottom-nav"
 import { MaterialIcon } from "@/components/material-icon"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 export default function RegisterMechanicPage() {
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        // Redirect to login with the message for unauthenticated users
+        router.push('/login?message=salamat')
+      } else {
+        setLoading(false)
+      }
+    }
+    checkUser()
+  }, [router, supabase])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-midnight flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-turbo-orange border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen pb-32 bg-midnight">
       <header className="sticky top-0 z-50 glass border-b border-foreground/5">

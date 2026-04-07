@@ -13,6 +13,9 @@ const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapCo
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
 
+// Import Leaflet CSS at the top level for Turbopack compatibility
+import 'leaflet/dist/leaflet.css';
+
 // Moved inside the main component body to ensure SSR safety
 
 export function MechanicRegistrationForm() {
@@ -57,7 +60,6 @@ export function MechanicRegistrationForm() {
     if (typeof window === 'undefined') return;
     // Only load Leaflet on the client
     const L = require('leaflet');
-    require('leaflet/dist/leaflet.css');
     
     const icon = L.divIcon({
       className: 'custom-registration-icon',
