@@ -58,16 +58,26 @@ export default function LoginPage() {
                     <div className="w-16 h-16 bg-turbo-orange rounded-2xl flex items-center justify-center text-midnight mx-auto mb-4 shadow-[0_0_30px_rgba(255,95,0,0.4)]">
                         <MaterialIcon name="security" className="text-4xl" />
                     </div>
-                    <h1 className="text-2xl font-black text-foreground uppercase tracking-tight">AutoNear Secure Access</h1>
+                    <h1 className="text-2xl font-black text-foreground uppercase tracking-tight">TaraFix Secure Access</h1>
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">Sign in to continue</p>
                 </div>
 
                 {message.text && (
-                    <div className={`p-4 rounded-xl text-sm font-bold text-center mb-10 animate-in fade-in ${message.type === 'error' ? 'bg-destructive/10 border border-destructive/20 text-destructive' :
-                        message.type === 'info' ? 'bg-turbo-orange/10 border border-turbo-orange/20 text-turbo-orange' :
+                    <div className={`p-5 rounded-2xl text-xs font-black text-center mb-10 animate-in slide-in-from-top-4 duration-500 flex flex-col items-center gap-3 ${
+                        message.type === 'error' 
+                            ? 'bg-red-500/10 border border-red-500/20 text-red-500' :
+                        message.type === 'info' 
+                            ? 'bg-turbo-orange/10 border border-turbo-orange/20 text-turbo-orange' :
                             'bg-green-500/10 border border-green-500/20 text-green-400'
                         }`}>
-                        {message.text}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            message.type === 'error' ? 'bg-red-500/10' : 'bg-turbo-orange/10'
+                        }`}>
+                            <MaterialIcon name={message.type === 'error' ? 'warning' : 'handshake'} className="text-xl" />
+                        </div>
+                        <span className="uppercase tracking-[0.05em] leading-relaxed">
+                            {message.text}
+                        </span>
                     </div>
                 )}
 

@@ -67,23 +67,19 @@ export default function HomePage() {
 
       <main className="max-w-lg mx-auto">
         {/* Interactive Map Hero */}
-        <section className="relative w-full h-[65vh] overflow-hidden bg-slate-900 border-b border-foreground/5">
+        <section className="relative w-full h-[55vh] overflow-hidden bg-slate-900 border-b border-foreground/5">
           <div className="absolute inset-0 z-0">
             <MapView mechanics={[]} />
           </div>
           <div className="absolute inset-0 hero-gradient pointer-events-none" />
-          <div className="relative h-full flex flex-col justify-end p-8 pb-32 pointer-events-none z-10 animate-in">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-2 h-2 rounded-full bg-turbo-orange animate-pulse" />
-              <span className="text-turbo-orange font-black text-[10px] uppercase tracking-[0.4em] px-2 py-0.5 rounded bg-turbo-orange/10 backdrop-blur-md border border-turbo-orange/20">
-                Live Repair Network
-              </span>
-            </div>
-            <h1 className="text-5xl font-black text-white leading-[0.95] tracking-tighter text-balance italic">
-              TARA <span className="text-turbo-orange">FIX</span>. <br />
-              <span className="text-white/40 text-4xl block mt-2">ON-SITE.</span>
+          <div className="relative h-full flex flex-col justify-end p-6 pb-20 pointer-events-none z-10 animate-in">
+            <span className="text-turbo-orange font-bold text-[10px] uppercase tracking-[0.4em] mb-3 bg-turbo-orange/10 w-fit px-3 py-1 rounded backdrop-blur-sm border border-turbo-orange/20">
+              On-Demand Repairs
+            </span>
+            <h1 className="text-4xl font-extrabold text-foreground leading-[1.1] tracking-tight text-balance">
+              Need a Fix? <span className="text-electric-blue">We come to you.</span>
             </h1>
-            <p className="mt-6 text-xs text-white/40 font-bold uppercase tracking-widest max-w-[200px] leading-relaxed">
+            <p className="mt-4 text-[10px] text-muted-foreground font-black uppercase tracking-[0.15em] max-w-[200px] leading-relaxed">
               Philippines' First Freelance Mechanics network
             </p>
           </div>

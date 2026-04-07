@@ -175,55 +175,95 @@ export default function ProfilePage() {
 
             <main className="max-w-lg mx-auto px-6 pt-8">
                 {/* Profile Overview Card */}
-                <div className="glass-card rounded-3xl p-8 border border-white/5 relative overflow-hidden mb-8 shadow-2xl">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-turbo-orange/10 blur-3xl -mr-16 -mt-16 rounded-full" />
+                <div className="glass-card rounded-3xl p-8 border-white/10 relative overflow-hidden mb-8 shadow-2xl animate-in fade-in zoom-in duration-500">
+                    <div className="absolute inset-0 bg-gradient-to-br from-turbo-orange/5 via-transparent to-electric-blue/5 pointer-events-none" />
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-turbo-orange/10 blur-[80px] -mr-24 -mt-24 rounded-full opacity-50" />
 
                     <div className="flex flex-col items-center text-center relative z-10">
-                        <div className="w-24 h-24 bg-turbo-orange/20 rounded-full flex items-center justify-center border-2 border-turbo-orange/30 mb-4 shadow-[0_0_40px_rgba(255,95,0,0.15)] overflow-hidden">
-                            {(mechanicProfile?.image_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture) ? (
-                                <img 
-                                    src={mechanicProfile?.image_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture} 
-                                    alt="Profile" 
-                                    className="w-full h-full object-cover" 
-                                    referrerPolicy="no-referrer"
-                                />
-                            ) : (
-                                <MaterialIcon name="person" className="text-5xl text-turbo-orange" />
-                            )}
+                        <div className="relative mb-6">
+                            <div className="w-28 h-28 bg-midnight rounded-3xl flex items-center justify-center border-2 border-white/10 shadow-2xl overflow-hidden group">
+                                {(mechanicProfile?.image_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture) ? (
+                                    <img 
+                                        src={mechanicProfile?.image_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture} 
+                                        alt="Profile" 
+                                        className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500" 
+                                        referrerPolicy="no-referrer"
+                                    />
+                                ) : (
+                                    <MaterialIcon name="person" className="text-6xl text-white/10" />
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-midnight/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-turbo-orange rounded-2xl flex items-center justify-center text-midnight shadow-lg border-4 border-midnight">
+                                <MaterialIcon name="edit" className="text-lg" />
+                            </div>
                         </div>
-                        <h2 className="text-xl font-black text-foreground uppercase tracking-tight mb-1">
+
+                        <h2 className="text-2xl font-black text-white italic tracking-tighter mb-1">
                             {mechanicProfile?.name || user?.email?.split('@')[0] || 'User'}
                         </h2>
-                        <div className="flex items-center gap-2">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">
+                        <div className="flex flex-col items-center gap-2">
+                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em]">
                                 {user?.email}
                             </p>
                             {mechanicProfile?.is_verified && (
-                                <span className="text-[8px] font-black text-green-500 uppercase tracking-widest border border-green-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                    <MaterialIcon name="verified" className="text-[10px]" />
-                                    Verified Mechanic
+                                <span className="bg-green-500/10 text-green-500 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-green-500/20 flex items-center gap-1.5 mt-2">
+                                    <MaterialIcon name="verified" className="text-[10px] text-electric-blue" />
+                                    Verified Technician
                                 </span>
                             )}
                         </div>
                     </div>
                 </div>
 
+                {/* Direct Notification Alert Card */}
+                {isPushSupported && pushStatus !== 'granted' && (
+                    <div className="glass-card rounded-3xl p-6 border-electric-blue/30 bg-electric-blue/5 mb-8 relative overflow-hidden group shadow-2xl animate-in slide-in-from-bottom-4 duration-700">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <MaterialIcon name="notifications_active" className="text-5xl text-electric-blue" />
+                        </div>
+                        <div className="relative z-10">
+                            <h4 className="text-electric-blue text-xs font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-electric-blue animate-pulse" />
+                                Instant Fix Alerts
+                            </h4>
+                            <p className="text-[11px] text-white/60 mb-5 leading-relaxed font-bold">
+                                Get notified immediately when mechanics message you or when an SOS is nearby. High-priority push notifications.
+                            </p>
+                            <button
+                                onClick={handleEnablePush}
+                                disabled={pushLoading}
+                                className="h-12 bg-electric-blue text-midnight rounded-xl px-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-electric-blue/20 disabled:opacity-50"
+                            >
+                                {pushLoading ? (
+                                    <div className="w-4 h-4 border-2 border-midnight border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <>
+                                        <MaterialIcon name="notifications" className="text-sm" />
+                                        Enable Push Alerts
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Tab Navigation if Mechanic */}
                 {mechanicProfile && (
-                    <div className="flex p-1.5 bg-white/5 rounded-2xl mb-8 border border-white/5">
+                    <div className="flex p-2 bg-white/5 rounded-[2rem] mb-10 border border-white/5 shadow-inner">
                         <button 
                             onClick={() => setActiveTab('activity')}
-                            className={`flex-1 h-12 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'activity' ? 'bg-white/10 text-foreground shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`flex-1 h-14 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${activeTab === 'activity' ? 'bg-white shadow-xl text-midnight scale-[1.02]' : 'text-white/40 hover:text-white'}`}
                         >
-                            <MaterialIcon name="history" className="text-sm" />
+                            <MaterialIcon name="history" className="text-lg" />
                             My Activity
                         </button>
                         <button 
                             onClick={() => setActiveTab('tools')}
-                            className={`flex-1 h-12 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'tools' ? 'bg-electric-blue text-midnight shadow-lg shadow-electric-blue/20' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`flex-1 h-14 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${activeTab === 'tools' ? 'bg-electric-blue text-midnight shadow-lg shadow-electric-blue/40 scale-[1.02]' : 'text-white/40 hover:text-white'}`}
                         >
-                            <MaterialIcon name="engineering" className="text-sm" />
-                            Mechanic Tools
+                            <MaterialIcon name="engineering" className="text-lg" />
+                            Technician Hub
                         </button>
                     </div>
                 )}

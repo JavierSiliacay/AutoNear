@@ -36,11 +36,20 @@ function MapContent({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (map) {
-      // Small timeout to ensure DOM container is fully sized and ready for Leaflet
-      const timer = setTimeout(() => setIsReady(true), 100);
-      return () => clearTimeout(timer);
-    }
+    if (!map) return;
+    
+    // Ensure the container has dimensions before marking as ready
+    const checkSize = () => {
+      const size = map.getSize();
+      if (size.x > 0 && size.y > 0) {
+        setIsReady(true);
+      } else {
+        // Retry shortly if container isn't sized yet
+        setTimeout(checkSize, 50);
+      }
+    };
+    
+    checkSize();
   }, [map]);
 
   return isReady ? <>{children}</> : null;
@@ -76,9 +85,15 @@ export function MapView({ mechanics }: MapViewProps) {
 
   useEffect(() => {
     setIsMounted(true)
-    // Auto-locate on entry
-    handleLocateMe(true)
   }, [])
+
+  // Separate effect for auto-locate after a slight delay to ensure map stability
+  useEffect(() => {
+    if (isMounted) {
+        const timer = setTimeout(() => handleLocateMe(true), 1000);
+        return () => clearTimeout(timer);
+    }
+  }, [isMounted])
 
   const defaultCenter: [number, number] = [14.5995, 120.9842]
   const defaultZoom = 12
