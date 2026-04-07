@@ -67,27 +67,35 @@ export default function HomePage() {
 
       <main className="max-w-lg mx-auto">
         {/* Interactive Map Hero */}
-        <section className="relative w-full h-[55vh] overflow-hidden bg-slate-900 border-b border-foreground/5">
+        <section className="relative w-full h-[65vh] overflow-hidden bg-slate-900 border-b border-foreground/5">
           <div className="absolute inset-0 z-0">
             <MapView mechanics={[]} />
           </div>
           <div className="absolute inset-0 hero-gradient pointer-events-none" />
-          <div className="relative h-full flex flex-col justify-end p-6 pb-20 pointer-events-none z-10 animate-in">
-            <span className="text-turbo-orange font-bold text-[10px] uppercase tracking-[0.4em] mb-3 bg-turbo-orange/10 w-fit px-3 py-1 rounded backdrop-blur-sm border border-turbo-orange/20">
-              On-Demand Repairs
-            </span>
-            <h1 className="text-4xl font-extrabold text-foreground leading-[1.1] tracking-tight text-balance">
-              Need a Fix? <span className="text-electric-blue">We come to you.</span>
+          <div className="relative h-full flex flex-col justify-end p-8 pb-32 pointer-events-none z-10 animate-in">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-2 h-2 rounded-full bg-turbo-orange animate-pulse" />
+              <span className="text-turbo-orange font-black text-[10px] uppercase tracking-[0.4em] px-2 py-0.5 rounded bg-turbo-orange/10 backdrop-blur-md border border-turbo-orange/20">
+                Live Repair Network
+              </span>
+            </div>
+            <h1 className="text-5xl font-black text-white leading-[0.95] tracking-tighter text-balance italic">
+              TARA <span className="text-turbo-orange">FIX</span>. <br />
+              <span className="text-white/40 text-4xl block mt-2">ON-SITE.</span>
             </h1>
+            <p className="mt-6 text-xs text-white/40 font-bold uppercase tracking-widest max-w-[200px] leading-relaxed">
+              Philippines' First Freelance Mechanics network
+            </p>
           </div>
         </section>
 
         {/* Explore Button */}
-        <section className="px-5 -mt-10 relative z-10">
+        <section className="px-6 -mt-16 relative z-10">
           <Link href="/mechanics">
-            <button className="w-full bg-turbo-orange text-midnight font-black py-4 rounded-2xl flex items-center justify-center gap-2 orange-glow hover:scale-[1.02] active:scale-95 transition-all">
-              <MaterialIcon name="explore" />
-              EXPLORE MECHANICS
+            <button className="w-full bg-white text-midnight font-black py-4 rounded-2xl flex items-center justify-center gap-3 orange-glow hover:scale-[1.02] active:scale-95 transition-all shadow-2xl relative overflow-hidden group">
+              <div className="absolute inset-0 bg-turbo-orange scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500" />
+              <MaterialIcon name="explore" className="relative z-10 text-xl" />
+              <span className="relative z-10 text-sm tracking-[0.2em]">EXPLORE MECHANICS</span>
             </button>
           </Link>
         </section>
@@ -135,11 +143,15 @@ export default function HomePage() {
 
         {/* Featured Mechanics */}
         <section className="mt-16 mb-6 overflow-hidden">
-          <div className="px-5 flex items-center justify-between mb-6">
-            <h3 className="text-foreground font-bold text-lg tracking-tight">Top-Rated Pros</h3>
-            <div className="flex gap-1">
+          <div className="px-6 flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-foreground font-black text-xl tracking-tighter italic uppercase">Top-Rated Pros</h3>
+              <p className="text-[9px] text-muted-foreground font-black uppercase tracking-widest mt-1">Vetted & Active Technicians</p>
+            </div>
+            <div className="flex gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-turbo-orange" />
-              <div className="w-1.5 h-1.5 rounded-full bg-turbo-orange/30" />
+              <div className="w-1.5 h-1.5 rounded-full bg-turbo-orange/20" />
+              <div className="w-1.5 h-1.5 rounded-full bg-turbo-orange/10" />
             </div>
           </div>
           <div className="flex gap-4 overflow-x-auto px-5 no-scrollbar pb-4">
@@ -230,17 +242,22 @@ export default function HomePage() {
         </section>
 
         {/* Emergency SOS */}
-        <section className="mt-12 px-5 animate-in">
-          <div className="bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-red-500/30 p-6 rounded-[2rem] flex flex-col items-center text-center relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[50px] pointer-events-none" />
-            <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center text-white mb-4 shadow-[0_0_20px_rgba(239,68,68,0.4)] group-hover:scale-110 transition-transform">
-              <MaterialIcon name="report_problem" className="text-2xl" />
+        <section className="mt-20 px-6 animate-in">
+          <div className="bg-gradient-to-br from-red-600 to-orange-600 p-[1px] rounded-[2.5rem] shadow-2xl shadow-red-500/20 group cursor-pointer hover:scale-[1.02] transition-transform active:scale-95">
+            <div className="bg-midnight rounded-[2.45rem] p-8 flex flex-col items-center text-center relative overflow-hidden">
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-red-600/10 blur-[80px] pointer-events-none group-hover:bg-red-600/20 transition-colors" />
+              <div className="w-16 h-16 rounded-3xl bg-red-600 flex items-center justify-center text-white mb-6 shadow-xl shadow-red-600/40 relative">
+                <div className="absolute inset-0 rounded-3xl bg-red-600 animate-ping opacity-20" />
+                <MaterialIcon name="emergency_share" className="text-3xl relative z-10" />
+              </div>
+              <h3 className="text-2xl font-black text-foreground mb-2 italic uppercase tracking-tighter">STUCK ON THE ROAD?</h3>
+              <p className="text-[10px] text-muted-foreground mb-8 max-w-[220px] font-black uppercase tracking-widest leading-relaxed">
+                Connect with emergency responders in <span className="text-red-500">60 seconds</span> or less.
+              </p>
+              <button className="w-full bg-red-600 text-white font-black py-4 rounded-2xl text-[10px] tracking-[0.25em] hover:bg-red-700 transition-all shadow-xl shadow-red-600/20 uppercase italic">
+                ENGAGE EMERGENCY PROTOCOL
+              </button>
             </div>
-            <h3 className="text-xl font-black text-foreground mb-2 italic">STUCK ON THE ROAD?</h3>
-            <p className="text-xs text-muted-foreground mb-5 max-w-[200px]">Quickly find emergency mechanics near your current breakdown location.</p>
-            <button className="bg-red-500 text-white font-black px-8 py-3 rounded-full text-xs tracking-widest hover:bg-red-600 transition-all active:scale-95 shadow-lg">
-              GET SOS HELP
-            </button>
           </div>
         </section>
 

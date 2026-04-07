@@ -49,36 +49,48 @@
 
 @layer components {
   .glass {
-    background: rgba(26, 34, 50, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 15, 24, 0.7);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
   .glass-card {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .glass-dark {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.03);
   }
   .hero-gradient {
-    background: linear-gradient(to bottom, rgba(10, 15, 24, 0.2), rgba(10, 15, 24, 0.95));
+    background: radial-gradient(circle at 50% 0%, rgba(255, 95, 0, 0.15) 0%, transparent 50%),
+                linear-gradient(to bottom, transparent, rgba(10, 15, 24, 1));
   }
   .orange-glow {
-    box-shadow: 0 0 20px rgba(255, 95, 0, 0.3);
+    box-shadow: 0 8px 32px -8px rgba(255, 95, 0, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .orange-glow:hover {
+    box-shadow: 0 12px 40px -4px rgba(255, 95, 0, 0.5);
+    transform: translateY(-1px);
   }
   .shop-card-glow {
-    border: 1px solid rgba(0, 209, 255, 0.15);
-    box-shadow: 0 0 15px rgba(0, 209, 255, 0.05);
-    transition: border-color 0.3s, box-shadow 0.3s;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .shop-card-glow:hover {
-    border: 1px solid rgba(255, 95, 0, 0.4);
-    box-shadow: 0 0 20px rgba(255, 95, 0, 0.1);
+    border: 1px solid rgba(255, 95, 0, 0.3);
+    background: rgba(255, 255, 255, 0.04);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.5);
   }
   .neon-pin-orange {
-    filter: drop-shadow(0 0 8px rgba(255, 95, 0, 0.6));
-  }
-  .neon-pin-blue {
-    filter: drop-shadow(0 0 8px rgba(0, 209, 255, 0.6));
+    filter: drop-shadow(0 0 12px rgba(255, 95, 0, 0.8));
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -86,6 +98,25 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+  .text-shadow-sm {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
   }
 }
 

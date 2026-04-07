@@ -661,7 +661,7 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
                             </div>
                         </div>
                     )}
-                    <div className="relative flex gap-2">
+                    <div className="flex items-end gap-2.5 max-w-full">
                         <input
                             type="file"
                             ref={fileInputRef}
@@ -672,26 +672,42 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="w-14 h-14 bg-white/5 text-turbo-orange rounded-2xl flex items-center justify-center hover:bg-white/10 transition-all border border-white/5"
+                            className="flex-shrink-0 w-12 h-12 bg-white/5 text-turbo-orange rounded-xl flex items-center justify-center hover:bg-white/10 transition-all border border-white/5 active:scale-95"
+                            title="Add Photo"
                         >
-                            <MaterialIcon name="add_a_photo" />
+                            <MaterialIcon name="add_a_photo" className="text-xl" />
                         </button>
-                        <input
-                            type="text"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder={imagePreview ? "Add a caption..." : "Type a message..."}
-                            className="flex-1 h-14 bg-midnight/50 border border-white/10 rounded-2xl px-6 py-2 text-sm focus:ring-2 focus:ring-turbo-orange outline-none transition-all placeholder:text-muted-foreground/30"
-                        />
+                        
+                        <div className="flex-1 relative min-w-0">
+                            <textarea
+                                value={newMessage}
+                                onChange={(e) => {
+                                    setNewMessage(e.target.value);
+                                    // Auto-resize logic
+                                    e.target.style.height = 'inherit';
+                                    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey && !isSendingMessage) {
+                                        e.preventDefault();
+                                        handleSubmit(e as any);
+                                    }
+                                }}
+                                placeholder={imagePreview ? "Add a caption..." : "Type a message..."}
+                                rows={1}
+                                className="w-full bg-midnight/50 border border-white/10 rounded-2xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-turbo-orange outline-none transition-all placeholder:text-muted-foreground/30 resize-none min-h-[48px] max-h-[120px] leading-relaxed block overflow-y-auto custom-scrollbar"
+                            />
+                        </div>
+
                         <button
                             type="submit"
                             disabled={(!newMessage.trim() && !selectedImage) || isUploadingImage || isSendingMessage}
-                            className="w-14 h-14 bg-turbo-orange text-midnight rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                            className="flex-shrink-0 w-12 h-12 bg-turbo-orange text-midnight rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:scale-100 shadow-lg shadow-turbo-orange/20"
                         >
                             {(isUploadingImage || isSendingMessage) ? (
                                 <div className="w-5 h-5 border-2 border-midnight border-t-transparent rounded-full animate-spin" />
                             ) : (
-                                <MaterialIcon name="send" />
+                                <MaterialIcon name="send" className="text-xl ml-0.5" />
                             )}
                         </button>
                     </div>

@@ -76,6 +76,8 @@ export function MapView({ mechanics }: MapViewProps) {
 
   useEffect(() => {
     setIsMounted(true)
+    // Auto-locate on entry
+    handleLocateMe(true)
   }, [])
 
   const defaultCenter: [number, number] = [14.5995, 120.9842]
