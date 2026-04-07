@@ -1,3 +1,5 @@
+"use client"
+
 import { MechanicRegistrationForm } from "@/components/mechanic-registration-form"
 import { BottomNav } from "@/components/bottom-nav"
 import { MaterialIcon } from "@/components/material-icon"

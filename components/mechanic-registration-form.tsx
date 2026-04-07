@@ -13,24 +13,7 @@ const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapCo
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
 
-function LocationMarker({ position, setPosition, icon }: { 
-  position: [number, number], 
-  setPosition: (pos: [number, number]) => void,
-  icon: any
-}) {
-  // Only import useMapEvents on the client
-  const { useMapEvents } = require('react-leaflet');
-  
-  useMapEvents({
-    click(e: any) {
-      setPosition([e.latlng.lat, e.latlng.lng]);
-    },
-  });
-
-  return position === null ? null : (
-    <Marker position={position} icon={icon} />
-  );
-}
+// Moved inside the main component body to ensure SSR safety
 
 export function MechanicRegistrationForm() {
   const [step, setStep] = useState(1);
@@ -346,21 +329,30 @@ export function MechanicRegistrationForm() {
                   className="h-full w-full"
                   scrollWheelZoom={false}
                 >
-                  {/* Esri World Imagery Layer for high-res verification without API key */}
                   <TileLayer 
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" 
                     attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
                   />
-                  {/* Label layer to help identify streets */}
                   <TileLayer 
                     url="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
                     opacity={0.8}
                   />
-                  <LocationMarker 
-                    position={pinPosition} 
-                    setPosition={setPinPosition} 
-                    icon={registrationIcon}
-                  />
+                  {/* Internal LocationMarker Component - SSR SAFE */}
+                  {(() => {
+                    if (typeof window === 'undefined') return null;
+                    const { Marker, useMapEvents } = require('react-leaflet');
+                    
+                    const LocationMarkerInternal = () => {
+                      useMapEvents({
+                        click(e: any) {
+                          const newPos: [number, number] = [e.latlng.lat, e.latlng.lng];
+                          setPinPosition(newPos);
+                        },
+                      });
+                      return <Marker position={pinPosition} icon={registrationIcon} />;
+                    };
+                    return <LocationMarkerInternal />;
+                  })()}
                 </MapContainer>
               )}
               <div className="absolute top-4 right-4 z-[1000] p-2 glass rounded-lg border border-white/10">
