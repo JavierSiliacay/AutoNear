@@ -9,6 +9,7 @@ import { MaterialIcon } from "@/components/material-icon"
 import type { Shop, Mechanic } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface MapViewProps {
   mechanics: Mechanic[]
@@ -144,12 +145,34 @@ export function MapView({ mechanics }: MapViewProps) {
         const address = await fetchAddress(lat, lng);
         setUserLocation({ lat, lng, address });
         setIsLocating(false);
+        if (!isAuto) {
+          toast.success("Location updated successfully");
+        }
       },
       (error) => {
-        console.error("Geolocation error:", error);
         setIsLocating(false);
+        
+        let errorMessage = "Could not get your location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location access denied. Please enable it in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out.";
+            break;
+        }
+
+        console.warn("Geolocation error:", { code: error.code, message: error.message });
+        
+        // Only show toast if user explicitly clicked the button
+        if (!isAuto) {
+          toast.error(errorMessage);
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     );
   }
 

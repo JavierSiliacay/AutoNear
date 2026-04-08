@@ -217,7 +217,12 @@ export default async function MechanicDetailPage(props: {
         {/* Service Request Form */}
         <section className="mt-10 px-5">
           {mechanic.is_available ? (
-            <ServiceRequestForm mechanicId={mechanic.id} mechanicServices={services.join(", ")} />
+            <ServiceRequestForm 
+              mechanicId={mechanic.id} 
+              mechanicServices={services.join(", ")} 
+              mechanicPreferences={mechanic.service_preference}
+              availableDays={mechanic.available_days}
+            />
           ) : (
             <div className="glass-card rounded-2xl p-8 border-red-500/20 text-center bg-red-500/5">
                 <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 mx-auto mb-4">

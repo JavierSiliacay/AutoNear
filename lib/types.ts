@@ -35,6 +35,8 @@ export interface Mechanic {
   review_count: number
   is_verified: boolean
   is_available: boolean
+  service_preference: ('Home Service' | 'On Shop')[]
+  available_days: string[]
   created_at: string
 }
 
@@ -60,6 +62,8 @@ export interface MechanicRequest {
   valid_id_url: string
   google_maps_pin_lat: number
   google_maps_pin_lng: number
+  service_preference: ('Home Service' | 'On Shop')[]
+  available_days: string[]
   status: 'pending' | 'approved' | 'rejected'
   rejection_reason: string | null
   created_at: string
@@ -75,6 +79,7 @@ export interface ServiceRequest {
   service_preference: 'Home Service' | 'On Shop' | null
   message: string | null
   status: 'pending' | 'accepted' | 'on_my_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled'
+  scheduled_date: string | null
   customer_email: string | null
   customer_avatar_url: string | null
   created_at: string

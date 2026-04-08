@@ -64,10 +64,10 @@ export function LocationPicker() {
       },
       (error) => {
         setLocating(false)
-        console.error("Geolocation error:", error)
-        if (error.code === 1) {
+        console.warn("Geolocation error:", { code: error.code, message: error.message });
+        if (error.code === error.PERMISSION_DENIED) {
           setLocationError("Location access denied. Please enable it in browser settings.")
-        } else if (error.code === 3) {
+        } else if (error.code === error.TIMEOUT) {
           setLocationError("Location request timed out. Please try again or select a city.")
         } else {
           setLocationError("Could not determine location. Please select a city instead.")

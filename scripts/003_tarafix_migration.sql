@@ -17,6 +17,8 @@ begin
       valid_id_url text,
       google_maps_pin_lat double precision,
       google_maps_pin_lng double precision,
+      service_preference text[] default '{}',
+      available_days text[] default '{}',
       status text default 'pending',
       rejection_reason text,
       created_at timestamptz default now()
@@ -38,6 +40,8 @@ create table if not exists public.mechanics (
   longitude double precision,
   phone text,
   image_url text,
+  service_preference text[] default '{}',
+  available_days text[] default '{}',
   rating numeric default 5.0,
   review_count integer default 0,
   is_verified boolean default false,

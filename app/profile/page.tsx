@@ -371,6 +371,14 @@ export default function ProfilePage() {
                                                                 {new Date(req.created_at).toLocaleDateString()} at {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                             </p>
                                                         </div>
+                                                        <div className="space-y-1 col-span-2">
+                                                            <label className="text-[8px] font-black text-electric-blue uppercase tracking-widest">Scheduled Service Date</label>
+                                                            <p className="text-[13px] font-black text-white italic tracking-tight">
+                                                                {req.scheduled_date 
+                                                                    ? new Date(req.scheduled_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) 
+                                                                    : 'AS SOON AS POSSIBLE'}
+                                                            </p>
+                                                        </div>
                                                     </div>
 
                                                     {req.message && (

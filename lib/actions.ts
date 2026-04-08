@@ -164,6 +164,7 @@ export async function submitServiceRequest(formData: FormData) {
   const serviceType = formData.get("service_type") as string
   const servicePreference = formData.get("service_preference") as string
   const message = formData.get("message") as string
+  const scheduledDate = formData.get("scheduled_date") as string
 
   if (!mechanicId || !customerName || !customerPhone || !servicePreference) {
     return { success: false, error: "Please fill in all required fields." }
@@ -181,6 +182,7 @@ export async function submitServiceRequest(formData: FormData) {
     vehicle_info: vehicleInfo || null,
     service_type: serviceType || null,
     service_preference: servicePreference,
+    scheduled_date: scheduledDate || null,
     message: message || null,
   })
 
@@ -582,9 +584,12 @@ export async function submitMechanicRequest(formData: FormData) {
   const contactNumber = formData.get("contact_number") as string
   const email = formData.get("email") as string
   const specializations = formData.getAll("specializations") as string[]
-  const experienceYears = parseInt(formData.get("experience_years") as string)
+  const experienceYearsStr = formData.get("experience_years") as string
+  const experienceYears = experienceYearsStr ? parseInt(experienceYearsStr) : 0
   const lat = parseFloat(formData.get("google_maps_pin_lat") as string)
   const lng = parseFloat(formData.get("google_maps_pin_lng") as string)
+  const servicePreference = formData.getAll("service_preference") as ('Home Service' | 'On Shop')[]
+  const availableDays = formData.getAll("available_days") as string[]
 
   if (!fullName || !contactNumber || !email) {
     return { success: false, error: "Please fill in all required fields." }
@@ -604,6 +609,8 @@ export async function submitMechanicRequest(formData: FormData) {
     experience_years: experienceYears,
     google_maps_pin_lat: lat,
     google_maps_pin_lng: lng,
+    service_preference: servicePreference,
+    available_days: availableDays,
     status: 'pending'
   })
 
@@ -658,6 +665,8 @@ export async function updateMechanicRequestStatus(requestId: string, status: 'ap
       phone: request.contact_number,
       latitude: request.google_maps_pin_lat,
       longitude: request.google_maps_pin_lng,
+      service_preference: request.service_preference,
+      available_days: request.available_days,
       is_verified: true,
       rating: 5.0,
       review_count: 0,

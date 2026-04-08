@@ -36,6 +36,8 @@ export function MechanicRegistrationForm() {
     experience_years: ''
   });
   const [selectedSpecs, setSelectedSpecs] = useState<string[]>([]);
+  const [servicePreference, setServicePreference] = useState<string[]>(['Home Service', 'On Shop']);
+  const [availableDays, setAvailableDays] = useState<string[]>(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
   const [registrationIcon, setRegistrationIcon] = useState<any>(null);
 
   // Initial Check for Existing Registration
@@ -131,14 +133,36 @@ export function MechanicRegistrationForm() {
   const handleGeolocation = () => {
     if (!navigator.geolocation) return;
     setLocating(true);
+    setError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const newPos: [number, number] = [pos.coords.latitude, pos.coords.longitude];
         setPinPosition(newPos);
         setLocating(false);
       },
-      () => setLocating(false),
-      { enableHighAccuracy: true }
+      (error) => {
+        setLocating(false);
+        let msg = "Could not get your location.";
+        if (error.code === error.PERMISSION_DENIED) msg = "Locating failed: Permission denied.";
+        else if (error.code === error.POSITION_UNAVAILABLE) msg = "Locating failed: Position unavailable.";
+        else if (error.code === error.TIMEOUT) msg = "Locating failed: Request timed out.";
+        
+        setError(msg);
+        console.warn("Geolocation error:", { code: error.code, message: error.message });
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  const handlePreferenceToggle = (pref: string) => {
+    setServicePreference(prev => 
+      prev.includes(pref) ? prev.filter(p => p !== pref) : [...prev, pref]
+    );
+  };
+
+  const handleDayToggle = (day: string) => {
+    setAvailableDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
 
@@ -163,6 +187,8 @@ export function MechanicRegistrationForm() {
     finalFormData.append('email', profile.email);
     finalFormData.append('experience_years', profile.experience_years);
     selectedSpecs.forEach(spec => finalFormData.append('specializations', spec));
+    servicePreference.forEach(pref => finalFormData.append('service_preference', pref));
+    availableDays.forEach(day => finalFormData.append('available_days', day));
     finalFormData.append('google_maps_pin_lat', pinPosition[0].toString());
     finalFormData.append('google_maps_pin_lng', pinPosition[1].toString());
 
@@ -281,26 +307,102 @@ export function MechanicRegistrationForm() {
 
       {step === 2 && (
         <div className="flex flex-col gap-5 animate-in slide-in-from-right-4">
-          <div className="space-y-4">
-            <h2 className="text-lg font-black text-foreground uppercase tracking-tight italic">Your Expertise</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {SERVICE_TYPES.map(service => (
-                <label key={service} className="flex items-center gap-3 p-3 bg-midnight/40 border border-white/5 rounded-xl cursor-pointer hover:border-turbo-orange/30 transition-all">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedSpecs.includes(service)}
-                    onChange={() => handleSpecToggle(service)}
-                    className="w-4 h-4 accent-turbo-orange" 
-                  />
-                  <span className="text-[10px] font-black text-foreground uppercase tracking-tight">{service}</span>
-                </label>
-              ))}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h2 className="text-lg font-black text-foreground uppercase tracking-tight italic">Your Expertise</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {SERVICE_TYPES.map(service => (
+                  <label key={service} className="flex items-center gap-3 p-3 bg-midnight/40 border border-white/5 rounded-xl cursor-pointer hover:border-turbo-orange/30 transition-all">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedSpecs.includes(service)}
+                      onChange={() => handleSpecToggle(service)}
+                      className="w-4 h-4 accent-turbo-orange" 
+                    />
+                    <span className="text-[10px] font-black text-foreground uppercase tracking-tight">{service}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-white/5">
+              <h2 className="text-lg font-black text-foreground uppercase tracking-tight italic">Service Availability</h2>
+              <div className="flex gap-3">
+                {['Home Service', 'On Shop'].map(pref => (
+                  <label key={pref} className={`flex-1 flex items-center justify-center gap-2 p-3 border rounded-xl cursor-pointer transition-all ${
+                    servicePreference.includes(pref) 
+                      ? 'bg-turbo-orange/10 border-turbo-orange text-turbo-orange shadow-[0_0_15px_rgba(255,95,0,0.1)]' 
+                      : 'bg-midnight/40 border-white/5 text-muted-foreground'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      className="hidden"
+                      checked={servicePreference.includes(pref)}
+                      onChange={() => handlePreferenceToggle(pref)}
+                    />
+                    <MaterialIcon name={pref === 'Home Service' ? 'home_repair_service' : 'storefront'} className="text-sm" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">{pref}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-white/5">
+              <div className="flex justify-between items-end">
+                <h2 className="text-lg font-black text-foreground uppercase tracking-tight italic">Service Schedule</h2>
+                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Weekly availability</p>
+              </div>
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                {[
+                  { name: 'Monday', short: 'MON', icon: 'looks_one' },
+                  { name: 'Tuesday', short: 'TUE', icon: 'looks_two' },
+                  { name: 'Wednesday', short: 'WED', icon: 'looks_3' },
+                  { name: 'Thursday', short: 'THU', icon: 'looks_4' },
+                  { name: 'Friday', short: 'FRI', icon: 'looks_5' },
+                  { name: 'Saturday', short: 'SAT', icon: 'looks_6' },
+                  { name: 'Sunday', short: 'SUN', icon: 'sunny' },
+                ].map(day => (
+                  <label key={day.name} className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border cursor-pointer transition-all duration-300 ${
+                    availableDays.includes(day.name)
+                      ? 'bg-electric-blue/10 border-electric-blue text-electric-blue shadow-[0_0_15px_rgba(37,99,235,0.1)]'
+                      : 'bg-midnight/40 border-white/5 text-muted-foreground hover:border-white/20'
+                  }`}>
+                    <input 
+                      type="checkbox"
+                      className="hidden"
+                      checked={availableDays.includes(day.name)}
+                      onChange={() => handleDayToggle(day.name)}
+                    />
+                    <MaterialIcon name={day.icon} className={`text-base ${availableDays.includes(day.name) ? 'opacity-100' : 'opacity-20'}`} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter">{day.short}</span>
+                    <div className={`w-1 h-1 rounded-full ${availableDays.includes(day.name) ? 'bg-electric-blue animate-pulse' : 'bg-white/10'}`} />
+                  </label>
+                ))}
+              </div>
+              <p className="text-[9px] text-muted-foreground/60 italic px-1">
+                Note: Users can only book services on your active days.
+              </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 mt-4">
             <button type="button" onClick={() => setStep(1)} className="flex-1 h-14 glass text-foreground font-black uppercase tracking-[0.2em] text-xs rounded-2xl">Back</button>
-            <button type="button" onClick={() => setStep(3)} className="flex-2 h-14 bg-white text-midnight font-black uppercase tracking-[0.2em] text-xs rounded-2xl flex items-center justify-center gap-2">
+            <button 
+              type="button" 
+              onClick={() => {
+                if (selectedSpecs.length === 0) {
+                  setError("Please select at least one specialization.");
+                  return;
+                }
+                if (servicePreference.length === 0) {
+                  setError("Please select at least one service preference.");
+                  return;
+                }
+                setError(null);
+                setStep(3);
+              }} 
+              className="flex-[2] h-14 bg-white text-midnight font-black uppercase tracking-[0.2em] text-xs rounded-2xl flex items-center justify-center gap-2"
+            >
               Next: Location Pin
               <MaterialIcon name="location_on" />
             </button>
@@ -342,9 +444,15 @@ export function MechanicRegistrationForm() {
                   {/* Internal LocationMarker Component - SSR SAFE */}
                   {(() => {
                     if (typeof window === 'undefined') return null;
-                    const { Marker, useMapEvents } = require('react-leaflet');
+                    const { Marker, useMapEvents, useMap } = require('react-leaflet');
                     
                     const LocationMarkerInternal = () => {
+                      const map = useMap();
+
+                      useEffect(() => {
+                        map.setView(pinPosition, 15, { animate: true });
+                      }, [pinPosition, map]);
+
                       useMapEvents({
                         click(e: any) {
                           const newPos: [number, number] = [e.latlng.lat, e.latlng.lng];
@@ -377,7 +485,7 @@ export function MechanicRegistrationForm() {
             <button
               disabled={isSubmitting}
               type="submit"
-              className="flex-2 h-14 bg-turbo-orange orange-glow text-midnight font-black uppercase tracking-[0.2em] text-xs rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-[2] h-14 bg-turbo-orange orange-glow text-midnight font-black uppercase tracking-[0.2em] text-xs rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-midnight border-t-transparent rounded-full animate-spin" />

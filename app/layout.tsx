@@ -18,6 +18,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
+import { Toaster } from "@/components/ui/sonner"
 import { AvatarSync } from "@/components/avatar-sync"
 import { NotificationProvider } from "@/lib/notification-context"
 
@@ -39,6 +40,7 @@ export default function RootLayout({
           <AvatarSync />
           {children}
         </NotificationProvider>
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   )

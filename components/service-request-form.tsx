@@ -4,18 +4,36 @@ import { useState } from "react"
 import { submitServiceRequest } from "@/lib/actions"
 import { MaterialIcon } from "./material-icon"
 import { SERVICE_TYPES } from "@/lib/types"
+import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 interface ServiceRequestFormProps {
   mechanicId: string
   mechanicServices: string
+  mechanicPreferences?: ('Home Service' | 'On Shop')[]
+  availableDays?: string[]
 }
 
-export function ServiceRequestForm({ mechanicId, mechanicServices }: ServiceRequestFormProps) {
+export function ServiceRequestForm({ 
+  mechanicId, 
+  mechanicServices, 
+  mechanicPreferences = ['Home Service', 'On Shop'],
+  availableDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+}: ServiceRequestFormProps) {
   const [phone, setPhone] = useState("")
   const [phoneError, setPhoneError] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+  const [dateError, setDateError] = useState("")
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Get digits only
@@ -78,8 +96,22 @@ export function ServiceRequestForm({ mechanicId, mechanicServices }: ServiceRequ
       return;
     }
 
+    // Validate Date
+    if (selectedDate && availableDays.length > 0) {
+      const date = new Date(selectedDate);
+      const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
+      if (!availableDays.includes(dayName)) {
+        setDateError(`Mechanic is not available on ${dayName}s`);
+        return;
+      }
+    }
+    setDateError("");
+
     // Replace the phone value in FormData with the cleaned version for DB
     formData.set("customer_phone", raw);
+    if (selectedDate) {
+      formData.set("scheduled_date", format(selectedDate, "yyyy-MM-dd"));
+    }
 
     setLoading(true)
     setError("")
@@ -186,9 +218,65 @@ export function ServiceRequestForm({ mechanicId, mechanicServices }: ServiceRequ
             className="w-full h-14 bg-background/80 border border-foreground/10 rounded-xl px-4 text-foreground text-sm focus:ring-2 focus:ring-turbo-orange focus:outline-none transition-all appearance-none"
           >
             <option value="">Select preference</option>
-            <option value="Home Service">Home Service</option>
-            <option value="On Shop">On Shop</option>
+            {mechanicPreferences.map(pref => (
+              <option key={pref} value={pref}>{pref}</option>
+            ))}
           </select>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-center">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              Preferred Date *
+            </label>
+            {dateError && <span className="text-[9px] font-bold text-red-500 animate-pulse">{dateError}</span>}
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full h-14 justify-start text-left font-normal bg-background/80 border-foreground/10 rounded-xl px-4 hover:bg-background/90 transition-all",
+                  !selectedDate && "text-muted-foreground",
+                  dateError && "border-red-500/50"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <MaterialIcon name="calendar_today" className="text-turbo-orange text-lg" />
+                  <span className="text-sm">
+                    {selectedDate ? format(selectedDate, "PPP") : "Select a booking date"}
+                  </span>
+                </div>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 border-white/10 bg-midnight/95 backdrop-blur-xl" align="center">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  setSelectedDate(date);
+                  setDateError("");
+                }}
+                disabled={(date) => {
+                  // Disable past dates
+                  if (date < new Date(new Date().setHours(0,0,0,0))) return true;
+                  
+                  // Check mechanic's available days
+                  if (availableDays.length > 0) {
+                    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
+                    return !availableDays.includes(dayName);
+                  }
+                  return false;
+                }}
+                initialFocus
+                className="rounded-xl border-white/5"
+              />
+            </PopoverContent>
+          </Popover>
+          <p className="text-[9px] text-muted-foreground px-1 flex items-center gap-1">
+            <MaterialIcon name="info" className="text-[10px] text-electric-blue" />
+            Available on: {availableDays.join(", ")}
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">
