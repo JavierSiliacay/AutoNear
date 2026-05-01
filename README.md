@@ -52,51 +52,7 @@ To provide every Filipino vehicle owner with the peace of mind that expert autom
 - **Deployment**: [Vercel](https://vercel.com/)
 - **Package Manager**: [PNPM](https://pnpm.io/)
 
-## Getting Started
 
-### Prerequisites
-
-*   Node.js 18+
-*   npm or pnpm
-*   A Supabase project
-
-### Installation
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/JavierSiliacay/TaraFix.git
-    cd TaraFix
-    ```
-
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-
-3.  **Environment Setup:**
-    Create a `.env.local` file in the root directory:
-    ```env
-    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-    SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-    UPSTASH_REDIS_REST_URL=your_upstash_redis_url
-    UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
-    ```
-
-4.  **Database Setup:**
-    Run the SQL scripts located in `scripts/` in your Supabase SQL Editor:
-    *   `scripts/001_create_schema.sql`: Sets up the main tables.
-    *   `scripts/002_add_join_network.sql`: Adds the shop request system and RLS policies.
-
-5.  **Run the development server:**
-    ```bash
-    npm run dev
-    ```
-    Open [http://localhost:3000](http://localhost:3000) to view the app.
-
-## Admin Access
-
-The `/admin` dashboard is restricted to authorized personnel only. To access:
 1.  Navigate to `/login`.
 2.  Sign in with an authorized email address.
 3.  You will be redirected to the Admin Queue to manage shop requests.
