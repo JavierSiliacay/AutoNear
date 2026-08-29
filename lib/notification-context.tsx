@@ -79,7 +79,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then((reg) => {
-                    reg.showNotification(title, {
+                    const options: any = {
                         body: body,
                         icon: '/icon.png',
                         badge: '/icon.png',
@@ -88,7 +88,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                         tag: 'tarafix-' + Date.now(),
                         renotify: true,
                         requireInteraction: true
-                    }).catch((err) => {
+                    };
+                    reg.showNotification(title, options).catch((err) => {
                         console.log("Service Worker showNotification fallback:", err);
                         try {
                             new Notification(title, { body, icon: '/icon.png' });
