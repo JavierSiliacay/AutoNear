@@ -37,8 +37,10 @@ import { WelcomeModal } from "@/components/welcome-modal"
 import { createClient } from "@/lib/supabase/client"
 import { getMechanicByEmail, checkIfAlreadyMechanic, getMechanicUnreadNotices, acknowledgeMechanicNotice, checkUserBanStatus } from "@/lib/actions"
 import type { AdminMechanicNotice } from "@/lib/types"
+import { useSession } from "next-auth/react"
 
 export default function HomePage() {
+  const { data: nextAuthSession } = useSession()
   const [topMechanics, setTopMechanics] = useState<Mechanic[]>([])
   const [loading, setLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -52,10 +54,23 @@ export default function HomePage() {
 
     async function loadData() {
       try {
-        const [{ data: { user } }, data] = await Promise.all([
+        const [{ data: { user: sbUser } }, data] = await Promise.all([
           supabase.auth.getUser(),
           getMechanics()
         ])
+
+        const activeUser = sbUser || (nextAuthSession?.user ? {
+          id: nextAuthSession.user.email,
+          email: nextAuthSession.user.email,
+          user_metadata: {
+            full_name: nextAuthSession.user.name,
+            name: nextAuthSession.user.name,
+            avatar_url: nextAuthSession.user.image,
+            picture: nextAuthSession.user.image,
+          }
+        } : null)
+
+        const user = activeUser
 
         if (user) {
           setCurrentUser(user)
@@ -138,7 +153,7 @@ export default function HomePage() {
 
     window.addEventListener("tarafix_role_changed", handleRoleUpdate)
     return () => window.removeEventListener("tarafix_role_changed", handleRoleUpdate)
-  }, [])
+  }, [nextAuthSession])
 
   const ADMIN_EMAILS = [
     "siliacay.javier@gmail.com",

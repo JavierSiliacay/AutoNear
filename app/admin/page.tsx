@@ -4,6 +4,9 @@ import { AdminQueue } from "@/components/admin-queue"
 import { BottomNav } from "@/components/bottom-nav"
 import { MaterialIcon } from "@/components/material-icon"
 
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+
 export const dynamic = "force-dynamic"
 
 const ALLOWED_EMAILS = [
@@ -15,10 +18,16 @@ const ALLOWED_EMAILS = [
 
 export default async function AdminPage() {
     const supabase = await createClient()
+    const nextAuthSession = await getServerSession(authOptions)
 
     const {
-        data: { user },
+        data: { user: sbUser },
     } = await supabase.auth.getUser()
+
+    const user = sbUser || (nextAuthSession?.user ? {
+        id: nextAuthSession.user.email,
+        email: nextAuthSession.user.email,
+    } : null)
 
     if (!user) {
         redirect("/login")

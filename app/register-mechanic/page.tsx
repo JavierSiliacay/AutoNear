@@ -8,15 +8,25 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
+import { useSession } from "next-auth/react"
+
 export default function RegisterMechanicPage() {
+  const { data: nextAuthSession, status: nextAuthStatus } = useSession()
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
+    if (nextAuthStatus === "loading") return;
+
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      let activeUser = nextAuthSession?.user;
+      if (!activeUser) {
+        const { data: { user } } = await supabase.auth.getUser()
+        activeUser = user as any;
+      }
+
+      if (!activeUser) {
         // Redirect to login with the message for unauthenticated users
         router.push('/login?message=salamat')
       } else {
@@ -24,7 +34,7 @@ export default function RegisterMechanicPage() {
       }
     }
     checkUser()
-  }, [router, supabase])
+  }, [router, supabase, nextAuthSession, nextAuthStatus])
 
   if (loading) {
     return (

@@ -7,6 +7,39 @@ import { strictRatelimit } from "./ratelimit"
 import { headers } from "next/headers"
 import webpush from 'web-push'
 import { getOrSetCache, invalidateCache } from "./redis"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "./auth"
+
+export async function getAuthenticatedUser(): Promise<{
+  id: string
+  email?: string
+  user_metadata?: {
+    full_name?: string | null
+    avatar_url?: string | null
+    picture?: string | null
+    [key: string]: any
+  }
+} | null> {
+  const nextAuthSession = await getServerSession(authOptions)
+  if (nextAuthSession?.user?.email) {
+    return {
+      id: nextAuthSession.user.email,
+      email: nextAuthSession.user.email,
+      user_metadata: {
+        full_name: nextAuthSession.user.name,
+        avatar_url: nextAuthSession.user.image,
+        picture: nextAuthSession.user.image,
+      }
+    }
+  }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  return user ? {
+    id: user.id,
+    email: user.email,
+    user_metadata: user.user_metadata
+  } : null
+}
 
 export async function getMechanics(options?: {
   city?: string
@@ -108,7 +141,7 @@ export async function getMechanicByEmail(email: string): Promise<Mechanic | null
 
   // Proactively update mechanic image from Google if missing
   if (mechanic && !mechanic.image_url) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getAuthenticatedUser()
     if (user?.email === email && user.user_metadata?.avatar_url) {
       await supabase.from("mechanics").update({ image_url: user.user_metadata.avatar_url }).eq("id", mechanic.id)
       mechanic.image_url = user.user_metadata.avatar_url
@@ -190,7 +223,7 @@ export async function submitServiceRequest(formData: FormData) {
     return { success: false, error: "Please fill in all required fields including Vehicle Info." }
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   // 0. Block Banned Car Owners / Users
   if (user?.email) {
@@ -607,6 +640,41 @@ export async function sendChatMessage(requestId: string, content: string, sender
   return { success: true }
 }
 
+export async function savePushSubscription(subscription: any) {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user || !user.email) return { success: false, error: "Unauthorized" };
+
+    const supabase = await createClient();
+    const endpoint = subscription?.endpoint;
+    if (!endpoint) return { success: false, error: "Invalid subscription" };
+
+    // Check if this endpoint already exists for this user
+    const { data: existing } = await supabase
+      .from("push_subscriptions")
+      .select("id")
+      .eq("user_email", user.email)
+      .eq("subscription->>endpoint", endpoint)
+      .maybeSingle();
+
+    if (!existing) {
+      const { error } = await supabase.from("push_subscriptions").insert({
+        user_email: user.email,
+        subscription: subscription
+      });
+      if (error) {
+        console.error("Error inserting push subscription:", error);
+        return { success: false, error: error.message };
+      }
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Save push subscription error:", err);
+    return { success: false, error: err.message || "Failed to save push subscription" };
+  }
+}
+
 export async function updateShopRequestStatus(requestId: string, status: 'approved' | 'rejected', reason?: string) {
   const supabase = await createClient()
 
@@ -1016,7 +1084,7 @@ export async function revokeUserAccess(payload: {
   reason?: string
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   const ALLOWED_ADMINS = [
     "siliacay.javier@gmail.com",
@@ -1065,7 +1133,7 @@ export async function revokeUserAccess(payload: {
 
 export async function getBannedUsers() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   const ALLOWED_ADMINS = [
     "siliacay.javier@gmail.com",
@@ -1093,7 +1161,7 @@ export async function getBannedUsers() {
 
 export async function unbanUser(email: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   const ALLOWED_ADMINS = [
     "siliacay.javier@gmail.com",
@@ -1139,7 +1207,7 @@ export async function checkUserBanStatus(email: string) {
 
 export async function syncCurrentUserAvatar() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
   
   if (!user) return { success: false }
 
@@ -1152,6 +1220,9 @@ export async function syncCurrentUserAvatar() {
   // Update recent service requests as customer
   await supabase.from("service_requests").update({ customer_avatar_url: avatarUrl }).eq("customer_email", user.email)
 
+  revalidatePath('/profile')
+  revalidatePath('/admin')
+  revalidatePath('/mechanics')
   return { success: true }
 }
 
@@ -1285,7 +1356,7 @@ export async function sendAdminMechanicNotice(payload: {
   noticeType?: 'reminder' | 'warning' | 'inactivity' | 'urgent'
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   const ALLOWED_ADMINS = [
     "siliacay.javier@gmail.com",
@@ -1418,7 +1489,7 @@ export async function submitCustomerReport(payload: {
 
 export async function getCustomerReports() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   const ALLOWED_ADMINS = [
     "siliacay.javier@gmail.com",
@@ -1454,7 +1525,7 @@ export async function getCustomerReports() {
 
 export async function updateCustomerReportStatus(reportId: string, status: 'pending' | 'warned' | 'revoked' | 'dismissed', adminNotes?: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   const ALLOWED_ADMINS = [
     "siliacay.javier@gmail.com",

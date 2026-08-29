@@ -24,10 +24,16 @@ import { PWAInstallButton } from '@/components/pwa-install-button';
 import { formatPHPhoneNumber } from '@/lib/utils';
 
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
+
 export default function ProfilePage() {
+    const { data: nextAuthSession, status: nextAuthStatus } = useSession();
+    const queryClient = useQueryClient();
+    const supabase = createClient();
+    const router = useRouter();
+
     const [user, setUser] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [requests, setRequests] = useState<any[]>([]);
     const [mechanicProfile, setMechanicProfile] = useState<Mechanic | null>(null);
     const [activeChat, setActiveChat] = useState<any | null>(null);
     const [activeTab, setActiveTab] = useState<'activity' | 'tools'>('activity');
@@ -43,74 +49,100 @@ export default function ProfilePage() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [activeAdminNotice, setActiveAdminNotice] = useState<AdminMechanicNotice | null>(null);
     const { unreadCounts, clearUnreadCount, unviewedAppointments, markAppointmentViewed, setActiveChatId, subscribeToPush, isPushSupported } = useNotifications();
-    const [notificationAudio, setNotificationAudio] = useState<HTMLAudioElement | null>(null);
     const [pushLoading, setPushLoading] = useState(false);
     const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied'>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
     const activeChatRef = useRef<any>(null);
 
-    const supabase = createClient();
-    const router = useRouter();
+    // Resolve active email directly in memory
+    const activeEmail = nextAuthSession?.user?.email;
+
+    // TanStack Query: In-memory cache for 60 seconds, zero server refetch on tab switch or page re-entry
+    const { data: profileData, isLoading: queryLoading } = useQuery({
+        queryKey: ['profile-data', activeEmail],
+        queryFn: async () => {
+            let email = activeEmail;
+            let activeUser: any = nextAuthSession?.user ? {
+                id: nextAuthSession.user.email,
+                email: nextAuthSession.user.email,
+                user_metadata: {
+                    full_name: nextAuthSession.user.name,
+                    avatar_url: nextAuthSession.user.image
+                }
+            } : null;
+
+            if (!email) {
+                const { data: { user: sbUser } } = await supabase.auth.getUser();
+                if (sbUser) {
+                    email = sbUser.email;
+                    activeUser = sbUser;
+                }
+            }
+
+            if (!email) {
+                return null;
+            }
+
+            const [userRequests, mechanic, notices] = await Promise.all([
+                getUsersServiceRequests(email),
+                getMechanicByEmail(email),
+                getMechanicUnreadNotices(email)
+            ]);
+
+            let combinedRequests = [...userRequests];
+            if (mechanic) {
+                const mechanicRequests = await getMechanicServiceRequests(mechanic.id);
+                const existingIds = new Set(combinedRequests.map(r => r.id));
+                mechanicRequests.forEach(r => {
+                    if (!existingIds.has(r.id)) {
+                        combinedRequests.push(r);
+                    }
+                });
+            }
+
+            return {
+                user: activeUser,
+                mechanic,
+                notices,
+                requests: combinedRequests.sort((a, b) => 
+                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                )
+            };
+        },
+        enabled: nextAuthStatus !== "loading",
+        staleTime: 60 * 1000, // 1 minute instant cache
+        gcTime: 5 * 60 * 1000,
+    });
+
+    const loading = nextAuthStatus === "loading" || queryLoading;
+    const [requests, setRequests] = useState<any[]>([]);
 
     useEffect(() => {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-        setNotificationAudio(audio);
-
-        const init = async () => {
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
-                    router.push('/login');
-                    return;
-                }
-                setUser(user);
-
-                const [userRequests, mechanic, notices] = await Promise.all([
-                    getUsersServiceRequests(user.email!),
-                    getMechanicByEmail(user.email!),
-                    getMechanicUnreadNotices(user.email!)
-                ]);
-
-                if (notices.length > 0) {
-                    setActiveAdminNotice(notices[0]);
-                }
-                
-                let combinedRequests = [...userRequests];
-                if (mechanic) {
-                    const mechanicRequests = await getMechanicServiceRequests(mechanic.id);
-                    const existingIds = new Set(combinedRequests.map(r => r.id));
-                    mechanicRequests.forEach(r => {
-                        if (!existingIds.has(r.id)) {
-                            combinedRequests.push(r);
-                        }
-                    });
-                    
-                    setMechanicProfile(mechanic);
-                    setEditData({
-                        name: mechanic.name,
-                        bio: mechanic.bio || '',
-                        specializations: mechanic.specializations || [],
-                        phone: mechanic.phone || ''
-                    });
-                }
-                
-                setRequests(combinedRequests.sort((a, b) => 
-                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                ));
-
-            } catch (error) {
-                console.error("Profile load error:", error);
-            } finally {
-                setLoading(false);
+        if (profileData) {
+            setUser(profileData.user);
+            setRequests(profileData.requests || []);
+            if (profileData.notices && profileData.notices.length > 0) {
+                setActiveAdminNotice(profileData.notices[0]);
             }
-        };
-
-        init();
-    }, [router, supabase]);
+            if (profileData.mechanic) {
+                setMechanicProfile(profileData.mechanic);
+                setEditData({
+                    name: profileData.mechanic.name,
+                    bio: profileData.mechanic.bio || '',
+                    specializations: profileData.mechanic.specializations || [],
+                    phone: profileData.mechanic.phone || ''
+                });
+            }
+        }
+    }, [profileData]);
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
+        try {
+            const { signOut } = await import('next-auth/react');
+            await signOut({ redirect: false });
+        } catch (e) {}
         await supabase.auth.signOut();
         router.push('/');
         router.refresh();

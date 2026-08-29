@@ -10,6 +10,7 @@ import type { Shop, Mechanic } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useSession } from "next-auth/react"
 
 interface MapViewProps {
   mechanics: Mechanic[]
@@ -57,6 +58,7 @@ function MapContent({ children }: { children: React.ReactNode }) {
 }
 
 export function MapView({ mechanics }: MapViewProps) {
+  const { data: nextAuthSession } = useSession()
   // Define icons inside the component to avoid SSR errors
   const [selectedMechanic, setSelectedMechanic] = useState<Mechanic | null>(null)
   const [localMechanics, setLocalMechanics] = useState<Mechanic[]>(mechanics)
@@ -65,6 +67,12 @@ export function MapView({ mechanics }: MapViewProps) {
   const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  const getActiveUser = async () => {
+    if (nextAuthSession?.user) return nextAuthSession.user;
+    const { data: { user } } = await supabase.auth.getUser();
+    return user || null;
+  }
 
   const mechanicIcon = useMemo(() => isMounted ? L.divIcon({
     className: 'custom-div-icon',
@@ -114,7 +122,7 @@ export function MapView({ mechanics }: MapViewProps) {
   }
 
   const handleMapClick = async (lat: number, lng: number) => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getActiveUser();
     if (!user) {
       router.push('/login?message=salamat')
       return
@@ -131,7 +139,7 @@ export function MapView({ mechanics }: MapViewProps) {
     if (!navigator.geolocation) return;
 
     if (!isAuto) {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getActiveUser();
       if (!user) {
         router.push('/login?message=salamat')
         return

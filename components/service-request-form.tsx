@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
+import { useSession } from "next-auth/react"
+
 interface ServiceRequestFormProps {
   mechanicId: string
   mechanicServices: string
@@ -29,6 +31,7 @@ export function ServiceRequestForm({
   mechanicPreferences = ['Home Service', 'On Shop'],
   availableDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 }: ServiceRequestFormProps) {
+  const { data: nextAuthSession } = useSession()
   const [phone, setPhone] = useState("")
   const [phoneError, setPhoneError] = useState("")
   const [submitted, setSubmitted] = useState(false)
@@ -43,14 +46,19 @@ export function ServiceRequestForm({
     async function checkExistingActiveBooking() {
       try {
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user?.email) {
+        let activeEmail = nextAuthSession?.user?.email;
+        if (!activeEmail) {
+          const { data: { user } } = await supabase.auth.getUser()
+          activeEmail = user?.email;
+        }
+
+        if (activeEmail) {
           const activeStatuses = ['pending', 'accepted', 'on_my_way', 'arrived', 'in_progress']
           const { data: bookings } = await supabase
             .from("service_requests")
             .select("id, status")
             .eq("mechanic_id", mechanicId)
-            .ilike("customer_email", user.email.toLowerCase().trim())
+            .ilike("customer_email", activeEmail.toLowerCase().trim())
             .in("status", activeStatuses)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -67,7 +75,7 @@ export function ServiceRequestForm({
     }
 
     checkExistingActiveBooking()
-  }, [mechanicId])
+  }, [mechanicId, nextAuthSession])
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Get digits only

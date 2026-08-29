@@ -41,6 +41,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const hasNextAuthSession = 
+    Boolean(request.cookies.get('next-auth.session-token')?.value) ||
+    Boolean(request.cookies.get('__Secure-next-auth.session-token')?.value)
+
   const isPublicPage =
     request.nextUrl.pathname === '/' ||
     request.nextUrl.pathname.startsWith('/login') ||
@@ -52,7 +56,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname === '/manifest.json' ||
     request.nextUrl.pathname === '/sw.js'
 
-  if (!user && !isPublicPage) {
+  if (!user && !hasNextAuthSession && !isPublicPage) {
     const url = request.nextUrl.clone()
     const next = url.pathname + url.search
     url.pathname = '/login'

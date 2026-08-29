@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { getMechanicById, getReviewsByMechanicId } from "@/lib/actions"
+import { getMechanicById, getReviewsByMechanicId, getAuthenticatedUser } from "@/lib/actions"
 import { createClient } from "@/lib/supabase/server"
 import { BottomNav } from "@/components/bottom-nav"
 import { MaterialIcon } from "@/components/material-icon"
@@ -23,7 +23,7 @@ export default async function MechanicDetailPage(props: {
   }
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   const userEmail = user?.email?.toLowerCase().trim() || ""
   const mechanicEmail = mechanic.email?.toLowerCase().trim() || ""
@@ -245,7 +245,7 @@ export default async function MechanicDetailPage(props: {
                   Viewing Your Own Listing
                 </h4>
                 <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto mb-6">
-                  This is how motorists see your profile. You cannot book service requests for yourself.
+                  This is how car owners or clients see your profile. You cannot book service requests for yourself.
                 </p>
                 <Link href="/profile">
                   <button className="h-14 px-8 bg-turbo-orange text-midnight font-black uppercase tracking-widest text-xs rounded-2xl hover:scale-105 transition-transform shadow-lg shadow-turbo-orange/20 cursor-pointer w-full">

@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+import { signIn } from 'next-auth/react';
+
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -36,17 +38,10 @@ export default function LoginPage() {
         const params = new URLSearchParams(window.location.search);
         const next = params.get('next') || '/profile';
 
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(next)}`,
-            },
+        // Direct NextAuth Google Sign-in -> Displays "to continue to TaraFix"
+        await signIn('google', {
+            callbackUrl: next,
         });
-
-        if (error) {
-            setMessage({ type: 'error', text: error.message });
-            setIsLoading(false);
-        }
     };
 
     return (
