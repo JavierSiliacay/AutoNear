@@ -66,6 +66,47 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return outputArray;
     };
 
+    const triggerSystemNotification = (title: string, body: string, url: string = '/profile') => {
+        // 1. Play chime
+        const now = Date.now();
+        if (now - lastAudioPlayRef.current > 1500) {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+            audio.play().catch(() => { });
+            lastAudioPlayRef.current = now;
+        }
+
+        // 2. Trigger Phone / OS Lockscreen & Shade Notification Card
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then((reg) => {
+                    reg.showNotification(title, {
+                        body: body,
+                        icon: '/icon.png',
+                        badge: '/icon.png',
+                        vibrate: [200, 100, 200, 100, 200],
+                        data: { url: url },
+                        tag: 'tarafix-' + Date.now(),
+                        renotify: true,
+                        requireInteraction: true
+                    }).catch((err) => {
+                        console.log("Service Worker showNotification fallback:", err);
+                        try {
+                            new Notification(title, { body, icon: '/icon.png' });
+                        } catch {}
+                    });
+                }).catch(() => {
+                    try {
+                        new Notification(title, { body, icon: '/icon.png' });
+                    } catch {}
+                });
+            } else {
+                try {
+                    new Notification(title, { body, icon: '/icon.png' });
+                } catch {}
+            }
+        }
+    };
+
     useEffect(() => {
         setIsPushSupported('serviceWorker' in navigator && 'PushManager' in window);
 
@@ -103,13 +144,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                                 return updated;
                             });
 
-                            // Play sound alert for new booking
-                            const now = Date.now();
-                            if (now - lastAudioPlayRef.current > 1500) {
-                                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-                                audio.play().catch(() => { });
-                                lastAudioPlayRef.current = now;
-                            }
+                            // Trigger Phone Notification Card & Audio Chime
+                            triggerSystemNotification(
+                                '🚗 New Service Request!',
+                                `${newReq.customer_name || 'A customer'} booked an appointment.`,
+                                '/profile'
+                            );
                         } else if (newReq.customer_email === userEmailRef.current) {
                             myRequestIdsRef.current.add(newReq.id);
                         }
@@ -135,12 +175,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                                     [updatedReq.id]: (prev[updatedReq.id] || 0) + 1
                                 }));
 
-                                const now = Date.now();
-                                if (now - lastAudioPlayRef.current > 1500) {
-                                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-                                    audio.play().catch(() => { });
-                                    lastAudioPlayRef.current = now;
-                                }
+                                const readableStatus = (updatedReq.status || '').replace(/_/g, ' ').toUpperCase();
+                                triggerSystemNotification(
+                                    `🔧 Status Update: ${readableStatus}`,
+                                    `Your mechanic updated the service request to ${readableStatus}.`,
+                                    '/profile'
+                                );
                             }
                         }
                     }
@@ -172,13 +212,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                                 [newMsg.request_id]: (prev[newMsg.request_id] || 0) + 1
                             }));
 
-                            // Audio Debouncing
-                            const now = Date.now();
-                            if (now - lastAudioPlayRef.current > 1500) {
-                                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-                                audio.play().catch(() => { });
-                                lastAudioPlayRef.current = now;
-                            }
+                            const senderName = newMsg.sender_role === 'mechanic' ? 'Mechanic' : 'Customer';
+                            triggerSystemNotification(
+                                `💬 New Message from ${senderName}`,
+                                newMsg.content && newMsg.content.length > 50 ? newMsg.content.substring(0, 50) + '...' : newMsg.content || 'New attachment sent',
+                                '/profile'
+                            );
                         }
                     }
                 )
