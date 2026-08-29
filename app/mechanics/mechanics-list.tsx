@@ -164,7 +164,13 @@ export function MechanicsList({ city, lat: initialLat, lng: initialLng, service:
           m.city.toLowerCase().includes(search.toLowerCase()) ||
           m.specializations.some((s) => s.toLowerCase().includes(search.toLowerCase()))
 
-        const matchesService = !activeService || m.specializations.includes(activeService)
+        const matchesService = !activeService || m.specializations.some(s => {
+          if (activeService.toLowerCase().includes("pms") || activeService.toLowerCase().includes("preventive")) {
+            const spec = s.toLowerCase();
+            return spec.includes("preventive") || spec.includes("pms") || spec.includes("oil") || spec.includes("tire") || spec.includes("brake");
+          }
+          return s.toLowerCase() === activeService.toLowerCase() || s.toLowerCase().includes(activeService.toLowerCase());
+        })
 
         // Radius check if user location is set
         let matchesRadius = true

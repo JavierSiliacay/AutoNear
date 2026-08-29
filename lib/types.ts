@@ -174,16 +174,14 @@ export const PH_CITIES = [
 ] as const
 
 export const SERVICE_TYPES = [
+  "Preventive Maintenance Services (PMS)",
   "General Repair",
-  "Oil Change",
-  "Vulcanizing",
-  "Tire Services",
-  "Car Wash",
   "Engine Tune-Up",
-  "Brake Services",
   "Electrical",
   "Air Conditioning",
   "Body & Paint",
+  "Vulcanizing",
+  "Car Wash",
 ] as const
 
 export function getDistanceKm(

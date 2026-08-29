@@ -17,12 +17,12 @@ import type { Mechanic } from "@/lib/types"
 import { useEffect, useState } from "react"
 
 const serviceCategories = [
-  { icon: "handyman", label: "General Fix" },
-  { icon: "oil_barrel", label: "Engine" },
-  { icon: "speed", label: "Brakes" },
-  { icon: "tire_repair", label: "Tires" },
-  { icon: "electrical_services", label: "Electric" },
-  { icon: "battery_charging_full", label: "Battery" },
+  { icon: "car_repair", label: "PMS (Preventive)", query: "Preventive Maintenance Services (PMS)", sub: "Oil, Brakes, Tires" },
+  { icon: "build", label: "Engine Tune-Up", query: "Engine Tune-Up" },
+  { icon: "electrical_services", label: "Electrical", query: "Electrical" },
+  { icon: "ac_unit", label: "Aircon (AC)", query: "Air Conditioning" },
+  { icon: "format_paint", label: "Body & Paint", query: "Body & Paint" },
+  { icon: "handyman", label: "General Fix", query: "General Repair" },
 ]
 
 const howItWorks = [
@@ -300,7 +300,7 @@ export default function HomePage() {
             {serviceCategories.map((item, i) => (
               <Link 
                 key={item.label} 
-                href={`/mechanics?service=${encodeURIComponent(item.label)}`}
+                href={`/mechanics?service=${encodeURIComponent(item.query || item.label)}`}
                 className={`flex flex-col items-center gap-3 animate-in stagger-${(i % 3) + 1} group`}
               >
                 <div className="w-full aspect-square max-w-[120px] glass-card rounded-3xl flex items-center justify-center text-foreground group-hover:border-turbo-orange/50 group-hover:bg-turbo-orange/5 transition-all shadow-lg">

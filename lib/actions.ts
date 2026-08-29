@@ -33,8 +33,23 @@ export async function getMechanics(options?: {
     let mechanics = (data || []) as Mechanic[]
 
     if (options?.service) {
+      const filterTerm = options.service.toLowerCase().trim()
+      const isPms = filterTerm.includes("pms") || filterTerm.includes("preventive")
+
       mechanics = mechanics.filter((m) =>
-        m.specializations?.some((s: string) => s.toLowerCase() === options.service!.toLowerCase())
+        m.specializations?.some((s: string) => {
+          const spec = s.toLowerCase()
+          if (isPms) {
+            return (
+              spec.includes("preventive") ||
+              spec.includes("pms") ||
+              spec.includes("oil") ||
+              spec.includes("tire") ||
+              spec.includes("brake")
+            )
+          }
+          return spec === filterTerm || spec.includes(filterTerm)
+        })
       )
     }
 
