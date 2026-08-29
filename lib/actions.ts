@@ -592,17 +592,22 @@ export async function sendChatMessage(requestId: string, content: string, sender
       if (senderRole === 'customer') {
         // Recipient is the mechanic
         recipientEmail = (request.mechanics as any)?.email;
+        if (!recipientEmail && request.mechanic_id) {
+          const { data: mech } = await supabase.from("mechanics").select("email").eq("id", request.mechanic_id).maybeSingle();
+          if (mech?.email) recipientEmail = mech.email;
+        }
       } else if (senderRole === 'mechanic') {
         // Recipient is the customer
         recipientEmail = request.customer_email;
       }
 
       if (recipientEmail) {
+        const cleanRecipientEmail = recipientEmail.toLowerCase().trim();
         // 3. Fetch recipient's push subscriptions
         const { data: subs } = await supabase
           .from("push_subscriptions")
           .select("subscription")
-          .eq("user_email", recipientEmail);
+          .ilike("user_email", cleanRecipientEmail);
 
         if (subs && subs.length > 0) {
           // 4. Configure web-push
@@ -943,6 +948,52 @@ export async function updateServiceRequestStatus(requestId: string, status: Serv
       new_status: status,
       updated_by_email: user.email
     })
+  }
+
+  // Dispatch WebPush to Customer Phone on Status Change
+  try {
+    const { data: request } = await supabase
+      .from("service_requests")
+      .select("customer_email, customer_name, mechanics(name)")
+      .eq("id", requestId)
+      .maybeSingle()
+
+    if (request?.customer_email) {
+      const cleanEmail = request.customer_email.toLowerCase().trim()
+      const { data: subs } = await supabase
+        .from("push_subscriptions")
+        .select("subscription")
+        .ilike("user_email", cleanEmail)
+
+      if (subs && subs.length > 0 && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+        webpush.setVapidDetails(
+          process.env.VAPID_SUBJECT || 'mailto:admin@tarafix.com',
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+          process.env.VAPID_PRIVATE_KEY
+        )
+
+        const mechName = (request.mechanics as any)?.name || "Your Mechanic"
+        const readableStatus = status.replace(/_/g, " ").toUpperCase()
+
+        const payload = JSON.stringify({
+          title: `🔧 Status Update: ${readableStatus}`,
+          body: `${mechName} marked your service request as ${readableStatus}.`,
+          url: `/profile`
+        })
+
+        await Promise.allSettled(
+          subs.map(s =>
+            webpush.sendNotification(s.subscription as any, payload).catch((err: any) => {
+              if (err.statusCode === 410 || err.statusCode === 404) {
+                return supabase.from("push_subscriptions").delete().eq("subscription", s.subscription)
+              }
+            })
+          )
+        )
+      }
+    }
+  } catch (err) {
+    console.error("Non-critical status push dispatch error:", err)
   }
 
   revalidatePath('/admin')
