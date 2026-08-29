@@ -254,6 +254,40 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
                 myRequestIdsRef.current = new Set(allIds);
                 setupSubscription(activeEmail);
+
+                // Auto-subscribe to Push if permission is granted, or auto-prompt on interaction
+                if ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window) {
+                    try {
+                        const registerPushToken = async () => {
+                            try {
+                                const reg = await navigator.serviceWorker.ready;
+                                let sub = await reg.pushManager.getSubscription();
+                                if (!sub) {
+                                    sub = await reg.pushManager.subscribe({
+                                        userVisibleOnly: true,
+                                        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                                    });
+                                }
+                                if (sub) {
+                                    await savePushSubscription(sub.toJSON());
+                                }
+                            } catch (e) {
+                                console.log("Push registration background sync:", e);
+                            }
+                        };
+
+                        if (Notification.permission === 'granted') {
+                            registerPushToken();
+                        } else if (Notification.permission === 'default') {
+                            // Prompt user automatically
+                            Notification.requestPermission().then((perm) => {
+                                if (perm === 'granted') {
+                                    registerPushToken();
+                                }
+                            }).catch(() => {});
+                        }
+                    } catch {}
+                }
             }
         };
 
