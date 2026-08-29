@@ -29,7 +29,7 @@ const TOUR_STEPS: TourStep[] = [
     badge: "STEP 2 OF 3"
   },
   {
-    targetId: "tour-bottom-nav",
+    targetId: "tour-nav-profile",
     title: "Profile & Active Request Queue",
     description: "Track your active jobs, message your mechanics in real-time chat, and manage your account right here.",
     position: "top",
@@ -57,10 +57,12 @@ export function WelcomeModal() {
     const step = TOUR_STEPS[index];
     if (!step) return;
 
-    // For step 3: on desktop check 'tour-desktop-profile', on mobile check 'tour-bottom-nav'
+    // Resolve target element (prioritize mobile profile tab, fallback to desktop profile or bottom nav)
     let el = document.getElementById(step.targetId);
-    if ((!el || el.offsetParent === null) && step.targetId === "tour-bottom-nav") {
-      el = document.getElementById("tour-desktop-profile");
+    if (!el || el.offsetParent === null) {
+      if (step.targetId === "tour-nav-profile" || step.targetId === "tour-bottom-nav") {
+        el = document.getElementById("tour-desktop-profile") || document.getElementById("tour-bottom-nav");
+      }
     }
 
     if (el) {
@@ -336,14 +338,18 @@ export function WelcomeModal() {
 
       {/* Floating Tooltip Card */}
       <div
-        className="absolute left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm pointer-events-auto transition-all duration-300 z-10"
+        className="fixed left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-sm pointer-events-auto transition-all duration-300 z-[3010]"
         style={{
           top: targetRect
-            ? (targetRect.top < 120 
+            ? (targetRect.top > window.innerHeight - 150
+                // Target is at bottom of screen (e.g. mobile bottom nav) -> position card cleanly above it
+                ? `${Math.max(16, targetRect.top - 250)}px`
+                : targetRect.top < 120 
+                // Target is at top of screen -> position card below it
                 ? `${targetRect.bottom + 16}px` 
                 : step.position === "bottom"
                 ? `${Math.min(window.innerHeight - 260, targetRect.bottom + 16)}px`
-                : `${Math.max(16, targetRect.top - 230)}px`)
+                : `${Math.max(16, targetRect.top - 240)}px`)
             : "50%",
           transform: targetRect ? "translateX(-50%)" : "translate(-50%, -50%)",
         }}
