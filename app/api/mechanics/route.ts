@@ -7,5 +7,12 @@ export async function GET(request: Request) {
   const service = searchParams.get("service") || undefined
 
   const mechanics = await getMechanics({ city, service })
-  return NextResponse.json(mechanics)
+  
+  return NextResponse.json(mechanics, {
+    headers: {
+      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+      "CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+      "Vercel-CDN-Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+    }
+  })
 }

@@ -1,5 +1,6 @@
 "use client"
 import Link from "next/link"
+import Image from "next/image"
 import { AppHeader } from "@/components/app-header"
 import { BottomNav } from "@/components/bottom-nav"
 import { LocationPicker } from "@/components/location-picker"
@@ -347,12 +348,20 @@ export default function HomePage() {
                 <Link 
                   key={pro.id} 
                   href={`/mechanics/${pro.id}`}
+                  prefetch={true}
                   className="glass-card p-5 rounded-3xl shop-card-glow cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group"
                 >
                   <div className="flex items-center gap-3.5 mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-xl overflow-hidden border border-white/10 shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-xl overflow-hidden border border-white/10 shrink-0 relative">
                       {pro.image_url ? (
-                        <img src={pro.image_url} alt={pro.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <Image 
+                          src={pro.image_url} 
+                          alt={pro.name} 
+                          fill
+                          sizes="(max-width: 768px) 48px, 48px"
+                          className="object-cover group-hover:scale-105 transition-transform" 
+                          loading="lazy"
+                        />
                       ) : (
                         <MaterialIcon name="person" className="text-muted-foreground" />
                       )}

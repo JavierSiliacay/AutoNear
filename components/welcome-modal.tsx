@@ -42,6 +42,28 @@ export function WelcomeModal() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
+  // Friendly human welcome & value proposition (not sounding like an AI/bot)
+  const introFullText = "Welcome to TaraFix! Need a trusted mechanic fast? Book verified pros near you for home service and roadside repair in just a few taps.";
+  const [typedText, setTypedText] = useState("");
+
+  // Typewriter effect trigger
+  useEffect(() => {
+    if (phase !== "intro") {
+      setTypedText("");
+      return;
+    }
+    let currentIndex = 0;
+    const timer = setInterval(() => {
+      if (currentIndex <= introFullText.length) {
+        setTypedText(introFullText.slice(0, currentIndex));
+        currentIndex++;
+      } else {
+        clearInterval(timer);
+      }
+    }, 24);
+    return () => clearInterval(timer);
+  }, [phase]);
+
   useEffect(() => {
     // Check if user has completed the tour v2
     const hasSeenTour = localStorage.getItem("tarafix_tour_v2_seen");
@@ -126,20 +148,42 @@ export function WelcomeModal() {
           onClick={handleFinishTour}
         />
         
-        <div className="relative w-full max-w-sm bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 text-center shadow-2xl animate-in zoom-in-95 duration-300">
-          <div className="w-16 h-16 bg-turbo-orange/10 border border-turbo-orange/20 rounded-2xl flex items-center justify-center text-turbo-orange mx-auto mb-5 shadow-lg shadow-turbo-orange/10">
-            <MaterialIcon name="explore" className="text-3xl" />
+        <div className="relative w-full max-w-sm bg-slate-900 border border-white/10 rounded-[2.5rem] p-7 text-center shadow-2xl animate-in zoom-in-95 duration-300">
+          {/* Non-Bouncing Sleek Dark Glass Speech Bubble with Typewriter Introduction */}
+          <div className="relative w-full mb-4">
+            <div className="bg-white/10 backdrop-blur-md text-foreground font-bold text-xs p-3.5 rounded-2xl border border-white/15 shadow-xl text-left leading-relaxed">
+              <div className="flex items-center gap-1.5 mb-1.5 text-turbo-orange text-[10px] uppercase font-black tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-turbo-orange animate-pulse" />
+                TaraFix Pro
+              </div>
+              <p className="text-foreground/90 font-medium text-[11px] min-h-[48px]">
+                {typedText}
+                <span className="inline-block w-1.5 h-3.5 bg-turbo-orange ml-1 animate-pulse align-middle" />
+              </p>
+            </div>
+            {/* Speech Bubble Pointer */}
+            <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[9px] border-t-white/10 mx-auto mt-[-1px]" />
           </div>
 
-          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-turbo-orange bg-turbo-orange/10 px-3 py-1 rounded-full border border-turbo-orange/20 inline-block mb-3">
-            Welcome to TaraFix
+          {/* 100% True Transparent Logo Mascot with High-Motion Smooth Waving GIF */}
+          <div className="relative w-36 h-36 mx-auto mb-2">
+            <div className="absolute inset-0 bg-turbo-orange/20 rounded-full blur-2xl animate-pulse" />
+            <img 
+              src="/mascot-waving.gif" 
+              alt="TaraFix Pro Mechanic Waving" 
+              className="relative w-full h-full object-contain filter drop-shadow-[0_12px_24px_rgba(255,95,0,0.3)]"
+            />
+          </div>
+
+          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-turbo-orange bg-turbo-orange/10 px-3 py-1 rounded-full border border-turbo-orange/20 inline-block mb-2">
+            Quick 30-Sec Tour
           </span>
 
           <h3 className="text-2xl font-black text-foreground uppercase italic tracking-tight mb-2">
-            Let's take a quick tour
+            Ready to explore?
           </h3>
-          <p className="text-xs text-muted-foreground leading-relaxed mb-8 max-w-[240px] mx-auto">
-            Discover how to find, book, and chat with trusted freelance mechanics in seconds.
+          <p className="text-xs text-muted-foreground leading-relaxed mb-6 max-w-[250px] mx-auto">
+            Take a 3-step walkthrough to master booking, dispatching, and contacting mechanics.
           </p>
 
           <div className="space-y-3">

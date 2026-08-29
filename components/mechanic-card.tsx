@@ -1,6 +1,5 @@
-'use client';
-
 import Link from "next/link"
+import Image from "next/image"
 import { MaterialIcon } from "./material-icon"
 import type { Mechanic } from "@/lib/types"
 
@@ -28,9 +27,16 @@ export function MechanicCard({ mechanic, distance, onSelect, isSelected }: Mecha
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-5 flex-1">
               <div className="w-16 h-16 rounded-2xl bg-midnight/50 border border-white/5 overflow-hidden flex-shrink-0 relative">
-                <div className="absolute inset-0 bg-gradient-to-tr from-turbo-orange/10 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-turbo-orange/10 to-transparent pointer-events-none z-10" />
                 {mechanic.image_url ? (
-                  <img src={mechanic.image_url} alt={mechanic.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <Image 
+                    src={mechanic.image_url} 
+                    alt={mechanic.name}
+                    fill
+                    sizes="(max-width: 768px) 64px, 64px"
+                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                    loading="lazy"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
                     <MaterialIcon name="person" className="text-4xl" />
@@ -92,6 +98,7 @@ export function MechanicCard({ mechanic, distance, onSelect, isSelected }: Mecha
         <div className="flex items-center gap-3">
           <Link
             href={detailUrl}
+            prefetch={true}
             className="flex-1 h-14 bg-turbo-orange text-midnight font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl flex items-center justify-center hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-turbo-orange/10 italic"
           >
             BOOK PROFESSIONAL
