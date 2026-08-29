@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { MaterialIcon } from './material-icon';
-import { getMessages, sendChatMessage, updateServiceRequestStatus, sendServiceQuote, respondToQuote, submitReview, uploadChatImage, getSignedUrls } from '@/lib/actions';
+import { getMessages, sendChatMessage, updateServiceRequestStatus, sendServiceQuote, respondToQuote, submitReview, uploadChatImage, getSignedUrls, submitCustomerReport } from '@/lib/actions';
 import type { ChatMessage, ServiceRequest } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 
@@ -39,6 +39,13 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
     const [isSendingMessage, setIsSendingMessage] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
+
+    // Customer Reporting State
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportCategory, setReportCategory] = useState('no_show');
+    const [reportDescription, setReportDescription] = useState('');
+    const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+    const [reportSuccess, setReportSuccess] = useState(false);
 
     const [notificationAudio, setNotificationAudio] = useState<HTMLAudioElement | null>(null);
 
@@ -350,12 +357,31 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-white/5 transition-all"
-                    >
-                        <MaterialIcon name="close" />
-                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                        {/* Report User Button (Active for both Customers and Mechanics) */}
+                        {currentUserRole !== 'admin' && (
+                            <button
+                                onClick={() => {
+                                    setReportCategory(currentUserRole === 'mechanic' ? 'fake_booking' : 'no_show');
+                                    setShowReportModal(true);
+                                    setReportSuccess(false);
+                                }}
+                                className="px-2.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
+                                title={currentUserRole === 'mechanic' ? "Report fake booking or customer to Admins" : "Report mechanic to Admins"}
+                            >
+                                <MaterialIcon name="flag" className="text-xs" />
+                                <span>Report</span>
+                            </button>
+                        )}
+
+                        <button
+                            onClick={onClose}
+                            className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-white/5 transition-all cursor-pointer"
+                        >
+                            <MaterialIcon name="close" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Messages Area */}
@@ -821,6 +847,164 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
                         >
                             Skip for now
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Customer Report Mechanic Modal */}
+            {showReportModal && (
+                <div className="fixed inset-0 z-[6000] flex items-center justify-center p-4 sm:p-6 bg-midnight/90 backdrop-blur-md animate-in fade-in duration-200">
+                    <div 
+                        className="bg-slate-deep w-full max-w-md p-6 sm:p-8 rounded-[35px] border border-red-500/30 shadow-2xl animate-in zoom-in-95 duration-200 text-left relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="w-14 h-14 bg-red-500/15 rounded-2xl flex items-center justify-center text-red-400 mb-4 border border-red-500/30">
+                            <MaterialIcon name="report_problem" className="text-3xl" />
+                        </div>
+
+                        {reportSuccess ? (
+                            <div className="text-center py-6 animate-in fade-in">
+                                <div className="w-16 h-16 bg-green-500/15 rounded-full flex items-center justify-center text-green-400 mx-auto mb-4 border border-green-500/30">
+                                    <MaterialIcon name="check_circle" className="text-3xl" />
+                                </div>
+                                <h3 className="text-xl font-black text-white uppercase italic tracking-tight mb-2">Report Submitted</h3>
+                                <p className="text-xs text-muted-foreground leading-relaxed font-medium mb-6">
+                                    Thank you. Your report has been dispatched directly to the TaraFix Moderation Team. We will review the chat logs and take appropriate disciplinary actions.
+                                </p>
+                                <button
+                                    onClick={() => setShowReportModal(false)}
+                                    className="w-full h-12 bg-white/10 hover:bg-white/20 text-white font-black uppercase text-xs tracking-wider rounded-xl transition-all cursor-pointer"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <h3 className="text-xl font-black text-white uppercase italic tracking-tight mb-1">
+                                    {currentUserRole === 'mechanic' ? 'Report Car Owner' : 'Report Mechanic'}
+                                </h3>
+                                <p className="text-xs text-muted-foreground leading-relaxed font-medium mb-5">
+                                    Submitting a complaint regarding <strong className="text-white">{recipientName}</strong>. Our administration team investigates all reports.
+                                </p>
+
+                                {/* Reason Category Selector */}
+                                <div className="space-y-1.5 mb-4">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                                        Reason for Report *
+                                    </label>
+                                    <select
+                                        value={reportCategory}
+                                        onChange={(e) => setReportCategory(e.target.value)}
+                                        className="w-full h-12 bg-background/60 border border-white/15 focus:border-red-500 focus:ring-1 focus:ring-red-500 rounded-xl px-3 text-xs text-foreground outline-none"
+                                    >
+                                        {currentUserRole === 'mechanic' ? (
+                                            <>
+                                                <option value="fake_booking">🚫 Fake / Ghost Booking</option>
+                                                <option value="unresponsive_customer">📴 Customer Unreachable / No-Show</option>
+                                                <option value="unpaid_service">💸 Payment Refusal / Scam</option>
+                                                <option value="abusive_behavior">🤬 Rude / Harassing Conduct</option>
+                                                <option value="suspicious_location">📍 Dangerous / Bogus Location</option>
+                                                <option value="other">📝 Other Incident</option>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <option value="no_show">🚫 No-Show / Late Arrival</option>
+                                                <option value="overcharging">💰 Overcharging / Quote Extortion</option>
+                                                <option value="unprofessional">🤬 Rude / Inappropriate Conduct</option>
+                                                <option value="substandard_work">⚠️ Poor / Incomplete Repair Work</option>
+                                                <option value="fraud">🛑 Suspicious or Fraudulent Activity</option>
+                                                <option value="other">📝 Other Reason</option>
+                                            </>
+                                        )}
+                                    </select>
+                                </div>
+
+                                {/* Description Input */}
+                                <div className="space-y-1.5 mb-6">
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                                        Explanation & Evidence *
+                                    </label>
+                                    <textarea
+                                        value={reportDescription}
+                                        onChange={(e) => setReportDescription(e.target.value)}
+                                        placeholder={currentUserRole === 'mechanic' ? "Explain the fake booking or issue with this car owner..." : "Please provide details about what happened..."}
+                                        className="w-full min-h-[100px] bg-background/60 border border-white/15 focus:border-red-500 focus:ring-1 focus:ring-red-500 rounded-xl p-3.5 text-xs text-foreground placeholder:text-muted-foreground outline-none resize-none"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-2.5">
+                                    <button
+                                        onClick={async () => {
+                                            if (!reportDescription.trim()) {
+                                                alert("Please provide details about the incident.");
+                                                return;
+                                            }
+                                            setIsSubmittingReport(true);
+
+                                            // Ensure we have complete requestData
+                                            let targetCustomerEmail = requestData?.customer_email;
+                                            let targetCustomerName = requestData?.customer_name;
+                                            let targetMechanicId = requestData?.mechanic_id;
+                                            let targetMechanicName = requestData?.mechanic_name;
+
+                                            if (!targetCustomerEmail || !targetMechanicId) {
+                                                const { data: latestReq } = await supabase
+                                                    .from('service_requests')
+                                                    .select('*, mechanics(name, email)')
+                                                    .eq('id', requestId)
+                                                    .maybeSingle();
+                                                if (latestReq) {
+                                                    targetCustomerEmail = latestReq.customer_email || targetCustomerEmail;
+                                                    targetCustomerName = latestReq.customer_name || targetCustomerName;
+                                                    targetMechanicId = latestReq.mechanic_id || targetMechanicId;
+                                                    targetMechanicName = latestReq.mechanics?.name || latestReq.mechanic_name || targetMechanicName;
+                                                }
+                                            }
+
+                                            const res = await submitCustomerReport({
+                                                requestId,
+                                                mechanicId: targetMechanicId || '',
+                                                customerEmail: targetCustomerEmail || (currentUserRole === 'customer' ? currentUserEmail : ''),
+                                                customerName: targetCustomerName || (currentUserRole === 'customer' ? 'Car Owner' : recipientName),
+                                                mechanicName: currentUserRole === 'mechanic' ? (targetMechanicName || 'Technician') : recipientName,
+                                                mechanicEmail: currentUserRole === 'mechanic' ? currentUserEmail : undefined,
+                                                reporterRole: currentUserRole === 'mechanic' ? 'mechanic' : 'customer',
+                                                reasonCategory: reportCategory,
+                                                description: reportDescription
+                                            });
+                                            if (res.success) {
+                                                setReportSuccess(true);
+                                                setReportDescription('');
+                                            } else {
+                                                alert(res.error || "Failed to submit report.");
+                                            }
+                                            setIsSubmittingReport(false);
+                                        }}
+                                        disabled={isSubmittingReport || !reportDescription.trim()}
+                                        className="w-full h-13 bg-red-500 hover:bg-red-600 active:scale-95 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-red-500/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                    >
+                                        {isSubmittingReport ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                Submitting Report...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <MaterialIcon name="send" className="text-sm" />
+                                                Submit Report to Admin
+                                            </>
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => setShowReportModal(false)}
+                                        disabled={isSubmittingReport}
+                                        className="w-full h-11 glass border border-white/10 hover:bg-white/5 text-foreground font-black uppercase tracking-widest text-xs rounded-xl transition-all cursor-pointer"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

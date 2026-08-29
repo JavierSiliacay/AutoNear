@@ -12,13 +12,16 @@ import {
     getMechanicServiceRequests,
     updateMechanicStatus, 
     updateMechanicProfile,
-    deleteServiceRequest
+    deleteServiceRequest,
+    getMechanicUnreadNotices,
+    acknowledgeMechanicNotice
 } from '@/lib/actions';
 import { ServiceChat } from '@/components/service-chat';
 import { useNotifications } from '@/lib/notification-context';
-import type { Mechanic } from '@/lib/types';
+import type { Mechanic, AdminMechanicNotice } from '@/lib/types';
 import { SERVICE_TYPES } from '@/lib/types';
 import { PWAInstallButton } from '@/components/pwa-install-button';
+import { formatPHPhoneNumber } from '@/lib/utils';
 
 
 export default function ProfilePage() {
@@ -36,8 +39,10 @@ export default function ProfilePage() {
     const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
     const [isDeletingRequest, setIsDeletingRequest] = useState<string | null>(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    const { unreadCounts, clearUnreadCount, setActiveChatId, subscribeToPush, isPushSupported } = useNotifications();
+    const [activeAdminNotice, setActiveAdminNotice] = useState<AdminMechanicNotice | null>(null);
+    const { unreadCounts, clearUnreadCount, unviewedAppointments, markAppointmentViewed, setActiveChatId, subscribeToPush, isPushSupported } = useNotifications();
     const [notificationAudio, setNotificationAudio] = useState<HTMLAudioElement | null>(null);
     const [pushLoading, setPushLoading] = useState(false);
     const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied'>(
@@ -61,10 +66,15 @@ export default function ProfilePage() {
                 }
                 setUser(user);
 
-                const [userRequests, mechanic] = await Promise.all([
+                const [userRequests, mechanic, notices] = await Promise.all([
                     getUsersServiceRequests(user.email!),
-                    getMechanicByEmail(user.email!)
+                    getMechanicByEmail(user.email!),
+                    getMechanicUnreadNotices(user.email!)
                 ]);
+
+                if (notices.length > 0) {
+                    setActiveAdminNotice(notices[0]);
+                }
                 
                 let combinedRequests = [...userRequests];
                 if (mechanic) {
@@ -172,48 +182,87 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="min-h-screen bg-midnight pb-24">
-            <AppHeader title="My Profile" />
+        <div className="min-h-screen pb-32">
+            <AppHeader
+                title="Profile & Activity"
+                rightAction={
+                    <div className="flex items-center gap-3">
+                        <PWAInstallButton />
+                        <button
+                            onClick={() => setShowLogoutModal(true)}
+                            className="text-red-500 hover:text-red-400 p-2 glass rounded-xl transition-all border border-red-500/20 cursor-pointer"
+                            title="Sign Out"
+                        >
+                            <MaterialIcon name="logout" className="text-xl" />
+                        </button>
+                    </div>
+                }
+            />
 
-            <main className="max-w-lg mx-auto px-6 pt-8">
-                {/* Profile Overview Card */}
-                <div className="glass-card rounded-3xl p-8 border-white/10 relative overflow-hidden mb-8 shadow-2xl animate-in fade-in zoom-in duration-500">
-                    <div className="absolute inset-0 bg-gradient-to-br from-turbo-orange/5 via-transparent to-electric-blue/5 pointer-events-none" />
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-turbo-orange/10 blur-[80px] -mr-24 -mt-24 rounded-full opacity-50" />
-
-                    <div className="flex flex-col items-center text-center relative z-10">
-                        <div className="relative mb-6">
-                            <div className="w-28 h-28 bg-midnight rounded-3xl flex items-center justify-center border-2 border-white/10 shadow-2xl overflow-hidden group">
-                                {(mechanicProfile?.image_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture) ? (
-                                    <img 
-                                        src={mechanicProfile?.image_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture} 
-                                        alt="Profile" 
-                                        className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500" 
-                                        referrerPolicy="no-referrer"
-                                    />
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 animate-in">
+                {/* Profile Hero Header */}
+                <div className="glass-card rounded-[2.5rem] p-6 sm:p-10 mb-8 border-white/10 relative overflow-hidden bg-gradient-to-b from-slate-900 to-midnight shadow-2xl">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 relative z-10 text-center sm:text-left">
+                        <div 
+                            onClick={() => {
+                                if (mechanicProfile) {
+                                    setActiveTab('tools');
+                                    setIsEditing(true);
+                                }
+                            }}
+                            className="relative group cursor-pointer shrink-0"
+                            title="Edit Profile"
+                        >
+                            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white/5 border-2 border-white/10 flex items-center justify-center overflow-hidden shadow-2xl group-hover:border-turbo-orange transition-all">
+                                {user?.user_metadata?.avatar_url ? (
+                                    <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
                                     <MaterialIcon name="person" className="text-6xl text-white/10" />
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-midnight/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
-                            <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-turbo-orange rounded-2xl flex items-center justify-center text-midnight shadow-lg border-4 border-midnight">
+                            <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-turbo-orange hover:scale-110 active:scale-95 transition-transform rounded-2xl flex items-center justify-center text-midnight shadow-lg border-4 border-midnight cursor-pointer">
                                 <MaterialIcon name="edit" className="text-lg" />
                             </div>
                         </div>
 
-                        <h2 className="text-2xl font-black text-white italic tracking-tighter mb-1">
-                            {mechanicProfile?.name || user?.email?.split('@')[0] || 'User'}
-                        </h2>
-                        <div className="flex flex-col items-center gap-2">
-                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em]">
-                                {user?.email}
-                            </p>
-                            {mechanicProfile?.is_verified && (
-                                <span className="bg-green-500/10 text-green-500 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-green-500/20 flex items-center gap-1.5 mt-2">
-                                    <MaterialIcon name="verified" className="text-[10px] text-electric-blue" />
-                                    Verified Technician
-                                </span>
-                            )}
+                        <div className="flex-1">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight uppercase leading-tight mb-1">
+                                        {mechanicProfile?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}
+                                    </h2>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                        {user?.email}
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 mx-auto sm:mx-0">
+                                    {mechanicProfile?.is_verified && (
+                                        <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-emerald-500/20 flex items-center gap-1.5 w-fit shadow-lg shadow-emerald-500/10">
+                                            <MaterialIcon name="verified" className="text-xs text-emerald-400" />
+                                            Verified Mechanic
+                                        </span>
+                                    )}
+
+                                    {mechanicProfile && (
+                                        <button
+                                            onClick={() => {
+                                                setActiveTab('tools');
+                                                setIsEditing(true);
+                                                // Smooth scroll down to edit form
+                                                setTimeout(() => {
+                                                    document.getElementById('mechanic-tools-section')?.scrollIntoView({ behavior: 'smooth' });
+                                                }, 100);
+                                            }}
+                                            className="px-3.5 py-1.5 bg-electric-blue/15 hover:bg-electric-blue text-electric-blue hover:text-midnight border border-electric-blue/30 text-[10px] font-black uppercase tracking-wider rounded-full transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-electric-blue/10"
+                                        >
+                                            <MaterialIcon name="tune" className="text-xs" />
+                                            <span>Edit Profile & Base</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -255,14 +304,19 @@ export default function ProfilePage() {
                     <div className="flex p-2 bg-white/5 rounded-[2rem] mb-10 border border-white/5 shadow-inner">
                         <button 
                             onClick={() => setActiveTab('activity')}
-                            className={`flex-1 h-14 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${activeTab === 'activity' ? 'bg-white shadow-xl text-midnight scale-[1.02]' : 'text-white/40 hover:text-white'}`}
+                            className={`flex-1 h-14 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2.5 transition-all cursor-pointer ${activeTab === 'activity' ? 'bg-white shadow-xl text-midnight scale-[1.02]' : 'text-white/40 hover:text-white'}`}
                         >
                             <MaterialIcon name="history" className="text-lg" />
-                            My Activity
+                            <span>My Activity</span>
+                            {unviewedAppointments.length > 0 && (
+                                <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full border border-midnight shadow-md animate-pulse">
+                                    {unviewedAppointments.length} NEW
+                                </span>
+                            )}
                         </button>
                         <button 
                             onClick={() => setActiveTab('tools')}
-                            className={`flex-1 h-14 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${activeTab === 'tools' ? 'bg-turbo-orange text-midnight shadow-lg shadow-turbo-orange/40 scale-[1.02]' : 'text-white/40 hover:text-white'}`}
+                            className={`flex-1 h-14 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all cursor-pointer ${activeTab === 'tools' ? 'bg-turbo-orange text-midnight shadow-lg shadow-turbo-orange/40 scale-[1.02]' : 'text-white/40 hover:text-white'}`}
                         >
                             <MaterialIcon name="engineering" className="text-lg" />
                             Mechanic Tools
@@ -275,9 +329,16 @@ export default function ProfilePage() {
                         <div className="flex items-center justify-between mb-6 px-1">
                             <h3 className="text-foreground font-bold text-lg tracking-tight uppercase">Service History</h3>
                             <div className="h-px flex-1 bg-white/5 mx-4" />
-                            <span className="bg-turbo-orange/10 text-turbo-orange text-[9px] font-black uppercase px-2 py-0.5 rounded border border-turbo-orange/20 tracking-widest">
-                                {requests.length} Total
-                            </span>
+                            <div className="flex items-center gap-2">
+                                {unviewedAppointments.length > 0 && (
+                                    <span className="bg-red-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full border border-red-400/40 tracking-widest animate-pulse">
+                                        {unviewedAppointments.length} Unread Bookings
+                                    </span>
+                                )}
+                                <span className="bg-turbo-orange/10 text-turbo-orange text-[9px] font-black uppercase px-2 py-0.5 rounded border border-turbo-orange/20 tracking-widest">
+                                    {requests.length} Total
+                                </span>
+                            </div>
                         </div>
 
                         {requests.length === 0 ? (
@@ -289,24 +350,35 @@ export default function ProfilePage() {
                             </div>
                         ) : (
                             <div className="flex flex-col gap-4 mb-10">
-                                {requests.map((req) => (
+                                {requests.map((req) => {
+                                    const isUnviewedBooking = unviewedAppointments.includes(req.id);
+                                    const hasUnreadChat = (unreadCounts[req.id] || 0) > 0;
+                                    
+                                    return (
                                     <div 
                                         key={req.id} 
-                                        className={`glass-card rounded-2xl border-white/5 overflow-hidden transition-all duration-300 ${expandedId === req.id ? 'border-turbo-orange/30 shadow-2xl shadow-turbo-orange/5' : 'hover:border-white/10'}`}
+                                        className={`glass-card rounded-2xl overflow-hidden transition-all duration-300 ${
+                                            isUnviewedBooking 
+                                                ? 'border-red-500/50 bg-red-500/[0.04] shadow-[0_0_20px_rgba(239,68,68,0.18)] ring-1 ring-red-500/30' 
+                                                : expandedId === req.id 
+                                                    ? 'border-turbo-orange/30 shadow-2xl shadow-turbo-orange/5' 
+                                                    : 'border-white/5 hover:border-white/10'
+                                        }`}
                                     >
                                         <div 
                                             className="p-5 flex items-center gap-4 cursor-pointer relative"
                                             onClick={() => {
                                                 setExpandedId(expandedId === req.id ? null : req.id);
-                                                // Clear unread count when card is focused/expanded
+                                                // Clear unread message count and mark appointment as seen
                                                 clearUnreadCount(req.id);
+                                                markAppointmentViewed(req.id);
                                             }}
                                         >
-                                            {/* Unread Badge */}
-                                            {unreadCounts[req.id] > 0 && (
-                                                <div className="absolute top-4 left-4 min-w-[20px] h-5 bg-red-500 rounded-full border-2 border-midnight z-20 animate-bounce flex items-center justify-center px-1">
-                                                    <span className="text-[10px] font-black text-white leading-none">
-                                                        {unreadCounts[req.id] > 99 ? '99+' : unreadCounts[req.id]}
+                                            {/* Unread / New Appointment Indicator Badge */}
+                                            {(hasUnreadChat || isUnviewedBooking) && (
+                                                <div className="absolute top-4 left-4 min-w-[20px] h-5 bg-red-500 rounded-full border-2 border-midnight z-20 flex items-center justify-center px-1.5 shadow-md">
+                                                    <span className="text-[9px] font-black text-white leading-none">
+                                                        {hasUnreadChat ? (unreadCounts[req.id] > 99 ? '99+' : unreadCounts[req.id]) : 'NEW'}
                                                     </span>
                                                 </div>
                                             )}
@@ -332,6 +404,11 @@ export default function ProfilePage() {
                                                             ? `Request from ${req.customer_name}` 
                                                             : (req.mechanic_name || 'Mechanic Service')}
                                                     </h4>
+                                                    {isUnviewedBooking && (
+                                                        <span className="bg-red-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full border border-red-400/40 animate-pulse">
+                                                            NEW BOOKING
+                                                        </span>
+                                                    )}
                                                     <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border leading-none ${
                                                         req.status === 'completed' ? 'bg-green-500/10 text-green-500 border-green-500/20' :
                                                         req.status === 'cancelled' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
@@ -357,7 +434,7 @@ export default function ProfilePage() {
                                                     <div className="grid grid-cols-2 gap-4">
                                                         <div className="space-y-1">
                                                             <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Customer Phone</label>
-                                                            <p className="text-xs font-bold text-foreground">{req.customer_phone}</p>
+                                                            <p className="text-xs font-bold text-foreground">{formatPHPhoneNumber(req.customer_phone)}</p>
                                                         </div>
                                                         <div className="space-y-1">
                                                             <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Service Preference</label>
@@ -433,7 +510,8 @@ export default function ProfilePage() {
                                             </div>
                                         )}
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -465,14 +543,14 @@ export default function ProfilePage() {
                         </div>
 
                         {/* Profile Editor */}
-                        <div className="glass-card rounded-3xl p-8 border border-white/5 relative overflow-hidden">
+                        <div id="mechanic-tools-section" className="glass-card rounded-3xl p-8 border border-white/5 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-electric-blue/10 blur-3xl -mr-16 -mt-16 rounded-full" />
                             
                             <div className="flex justify-between items-start mb-6 relative z-10">
-                                <h3 className="text-foreground font-black text-lg tracking-tight uppercase italic underline decoration-electric-blue decoration-2 underline-offset-4">Public Profile</h3>
+                                <h3 className="text-foreground font-black text-lg tracking-tight uppercase italic underline decoration-electric-blue decoration-2 underline-offset-4">Public Profile & Service Base</h3>
                                 <button 
                                     onClick={() => setIsEditing(!isEditing)}
-                                    className="w-10 h-10 glass rounded-xl flex items-center justify-center text-electric-blue border border-electric-blue/20 hover:bg-electric-blue hover:text-midnight transition-all shadow-lg"
+                                    className="w-10 h-10 glass rounded-xl flex items-center justify-center text-electric-blue border border-electric-blue/20 hover:bg-electric-blue hover:text-midnight transition-all shadow-lg cursor-pointer"
                                 >
                                     <MaterialIcon name={isEditing ? 'close' : 'edit_square'} className="text-sm" />
                                 </button>
@@ -486,7 +564,7 @@ export default function ProfilePage() {
                                     </div>
 
                                     <div>
-                                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-2 block">Technician Bio</label>
+                                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-2 block">Mechanic Bio</label>
                                         <p className="text-xs text-muted-foreground leading-relaxed">{mechanicProfile?.bio || 'Tells customers why you are the best choice!'}</p>
                                     </div>
 
@@ -530,7 +608,7 @@ export default function ProfilePage() {
                                     </div>
 
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Technician Bio</label>
+                                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Mechanic Bio</label>
                                         <textarea 
                                             value={editData.bio || ''} 
                                             onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
@@ -539,26 +617,75 @@ export default function ProfilePage() {
                                         />
                                     </div>
 
-                                    <div>
-                                        <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-3 block">Specializations</label>
-                                        <div className="grid grid-cols-2 gap-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {SERVICE_TYPES.map(service => (
-                                                <button 
-                                                    key={service} 
-                                                    type="button"
-                                                    onClick={() => toggleSpec(service)}
-                                                    className={`p-2.5 rounded-xl border text-[8px] font-black uppercase transition-all text-left ${editData.specializations?.includes(service) ? 'bg-electric-blue/10 border-electric-blue text-electric-blue' : 'bg-midnight/40 border-white/5 text-muted-foreground'}`}
-                                                >
-                                                    {service}
-                                                </button>
-                                            ))}
+                                    {/* Location & GPS Base Management */}
+                                    <div className="p-4 bg-midnight/40 rounded-2xl border border-white/5 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[9px] font-black text-electric-blue uppercase tracking-widest flex items-center gap-1.5">
+                                                <MaterialIcon name="my_location" className="text-xs" />
+                                                Service Base Location
+                                            </label>
+                                            {editData.latitude && editData.longitude && (
+                                                <span className="text-[8px] font-mono text-muted-foreground">
+                                                    {Number(editData.latitude).toFixed(4)}, {Number(editData.longitude).toFixed(4)}
+                                                </span>
+                                            )}
                                         </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest ml-1 mb-1 block">City / Town</label>
+                                                <input 
+                                                    value={editData.city || ''} 
+                                                    onChange={(e) => setEditData({ ...editData, city: e.target.value })}
+                                                    placeholder="e.g. Cagayan de Oro"
+                                                    className="w-full h-11 bg-background/50 border border-foreground/10 rounded-xl px-3 text-xs focus:ring-2 focus:ring-electric-blue outline-none" 
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-black text-muted-foreground uppercase tracking-widest ml-1 mb-1 block">Barangay</label>
+                                                <input 
+                                                    value={editData.barangay || ''} 
+                                                    onChange={(e) => setEditData({ ...editData, barangay: e.target.value })}
+                                                    placeholder="e.g. Carmen"
+                                                    className="w-full h-11 bg-background/50 border border-foreground/10 rounded-xl px-3 text-xs focus:ring-2 focus:ring-electric-blue outline-none" 
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (!navigator.geolocation) {
+                                                    alert("Geolocation not supported by browser.");
+                                                    return;
+                                                }
+                                                navigator.geolocation.getCurrentPosition(
+                                                    async (pos) => {
+                                                        const { latitude: lat, longitude: lng } = pos.coords;
+                                                        try {
+                                                            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+                                                            const geo = await res.json();
+                                                            const city = geo.city || geo.principalSubdivision || editData.city || "Cagayan de Oro";
+                                                            const barangay = geo.locality || editData.barangay || "";
+                                                            setEditData(prev => ({ ...prev, latitude: lat, longitude: lng, city, barangay }));
+                                                        } catch {
+                                                            setEditData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                                                        }
+                                                    },
+                                                    () => alert("Could not fetch current GPS location. Please check browser permissions.")
+                                                );
+                                            }}
+                                            className="w-full h-11 glass border border-electric-blue/30 text-electric-blue hover:bg-electric-blue/10 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer transition-all"
+                                        >
+                                            <MaterialIcon name="gps_fixed" className="text-xs" />
+                                            Update to Current GPS Location
+                                        </button>
                                     </div>
 
                                     <button
                                         onClick={handleSaveProfile}
                                         disabled={saving}
-                                        className="w-full h-14 bg-electric-blue text-midnight font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-electric-blue/20"
+                                        className="w-full h-14 bg-electric-blue text-midnight font-black uppercase tracking-widest text-[10px] rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-electric-blue/20 cursor-pointer"
                                     >
                                         {saving ? (
                                             <div className="w-5 h-5 border-2 border-midnight border-t-transparent rounded-full animate-spin" />
@@ -581,19 +708,137 @@ export default function ProfilePage() {
                         <PWAInstallButton />
                     </div>
                     <button
-                        onClick={handleLogout}
-                        disabled={isLoggingOut}
-                        className="w-full h-14 glass border border-destructive/20 rounded-2xl flex items-center justify-center gap-3 text-destructive font-black uppercase tracking-widest text-[10px] hover:bg-destructive/10 transition-all shadow-lg disabled:opacity-50"
+                        onClick={() => setShowLogoutModal(true)}
+                        className="w-full h-14 glass border border-destructive/20 rounded-2xl flex items-center justify-center gap-3 text-destructive font-black uppercase tracking-widest text-[10px] hover:bg-destructive/10 transition-all shadow-lg cursor-pointer"
                     >
-                        {isLoggingOut ? (
-                            <div className="w-4 h-4 border-2 border-destructive border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            <MaterialIcon name="logout" />
-                        )}
-                        {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
+                        <MaterialIcon name="logout" />
+                        Sign Out
                     </button>
                 </div>
             </main>
+
+            {/* Premium Emotional Sign Out Confirmation Modal */}
+            {showLogoutModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight/85 backdrop-blur-md animate-in fade-in duration-300">
+                    <div 
+                        className="w-full max-w-sm glass-card border border-white/10 rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden shadow-2xl bg-gradient-to-b from-slate-900 via-slate-900 to-midnight animate-in zoom-in-95 duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Ambient Glow */}
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-turbo-orange/15 blur-[60px] rounded-full pointer-events-none" />
+
+                        {/* Animated Crying Mascot Header */}
+                        <div className="relative mx-auto w-28 h-28 mb-4">
+                            <div className="w-full h-full rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl bg-midnight/80 flex items-center justify-center relative">
+                                <img 
+                                    src="/mascot-crying.gif" 
+                                    alt="TaraFix Crying Mascot" 
+                                    className="w-full h-full object-cover" 
+                                />
+                                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-midnight/90 border border-white/10 flex items-center justify-center text-sm shadow-lg">
+                                    🥺
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Text */}
+                        <div className="text-center mb-6">
+                            <span className="text-[9px] font-black uppercase tracking-[0.3em] bg-white/5 text-muted-foreground border border-white/10 px-3 py-1 rounded-full inline-block mb-2.5">
+                                Account Session
+                            </span>
+                            <h3 className="text-2xl font-black text-white italic uppercase tracking-tight mb-2">
+                                Leaving So Soon, {((mechanicProfile?.name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Friend') as string).split(' ')[0]}?
+                            </h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed font-medium">
+                                TaraFix will save your active service requests and chats. Are you sure you want to sign out right now?
+                            </p>
+                        </div>
+
+                        {/* Action Buttons (Primary CTA to stay logged in) */}
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => setShowLogoutModal(false)}
+                                disabled={isLoggingOut}
+                                className="w-full h-14 bg-gradient-to-r from-turbo-orange to-amber-500 hover:from-amber-500 hover:to-turbo-orange active:scale-95 text-midnight font-black uppercase tracking-wider text-xs rounded-2xl transition-all shadow-[0_4px_20px_rgba(255,95,0,0.35)] flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 border border-amber-300/30 group"
+                            >
+                                <MaterialIcon name="favorite" className="text-lg text-midnight group-hover:scale-125 transition-transform" />
+                                <span>Stay Logged In</span>
+                            </button>
+
+                            <button
+                                onClick={handleLogout}
+                                disabled={isLoggingOut}
+                                className="w-full h-11 text-red-400/80 hover:text-red-400 hover:bg-red-500/10 font-bold uppercase tracking-widest text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {isLoggingOut ? (
+                                    <>
+                                        <div className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                                        Signing Out...
+                                    </>
+                                ) : (
+                                    <>
+                                        <MaterialIcon name="logout" className="text-xs" />
+                                        Yes, Sign Out
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Admin Direct Notice / Warning Modal */}
+            {activeAdminNotice && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight/85 backdrop-blur-md animate-in fade-in duration-300">
+                    <div 
+                        className="w-full max-w-md glass-card border border-turbo-orange/40 rounded-[2.5rem] p-6 sm:p-8 bg-gradient-to-b from-slate-900 to-midnight shadow-[0_0_50px_rgba(255,95,0,0.25)] relative animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="w-16 h-16 rounded-2xl bg-turbo-orange/15 border border-turbo-orange/30 text-turbo-orange flex items-center justify-center mx-auto mb-4">
+                            <MaterialIcon name="campaign" className="text-3xl" />
+                        </div>
+
+                        <div className="text-center mb-5">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-turbo-orange bg-turbo-orange/10 px-3 py-1 rounded-full border border-turbo-orange/20 inline-block mb-2">
+                                Priority Administrator Message
+                            </span>
+                            <h3 className="text-xl font-black text-white uppercase italic tracking-tight mb-2">
+                                {activeAdminNotice.title || "Official Admin Notice"}
+                            </h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed font-medium">
+                                The platform administration team has left an important message regarding your account:
+                            </p>
+                        </div>
+
+                        {/* Notice Message Content */}
+                        <div className="p-5 bg-midnight/70 rounded-2xl border border-turbo-orange/30 mb-6 text-left shadow-inner">
+                            <div className="flex items-center gap-1.5 mb-2 text-turbo-orange">
+                                <MaterialIcon name="priority_high" className="text-xs" />
+                                <span className="text-[9px] font-black uppercase tracking-widest">Notice Content</span>
+                            </div>
+                            <p className="text-xs text-foreground font-semibold leading-relaxed">
+                                "{activeAdminNotice.message}"
+                            </p>
+                            <div className="mt-3 pt-2 border-t border-white/5 flex justify-between text-[8px] text-muted-foreground font-mono">
+                                <span>Sent: {new Date(activeAdminNotice.created_at).toLocaleDateString()}</span>
+                                <span className="text-turbo-orange font-bold uppercase">Action Required</span>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={async () => {
+                                const noticeId = activeAdminNotice.id;
+                                setActiveAdminNotice(null);
+                                await acknowledgeMechanicNotice(noticeId);
+                            }}
+                            className="w-full h-13 bg-turbo-orange hover:opacity-90 active:scale-95 text-midnight font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-turbo-orange/20 cursor-pointer flex items-center justify-center gap-2"
+                        >
+                            <MaterialIcon name="check_circle" className="text-sm" />
+                            <span>Acknowledge & Continue</span>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {activeChat && (
                 <ServiceChat

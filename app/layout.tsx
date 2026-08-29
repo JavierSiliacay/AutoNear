@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
   title: 'TaraFix - Find Freelance Mechanics in the Philippines',
-  description: 'Connect with expert freelance mechanics and technicians for on-demand, on-site auto repairs anywhere in the Philippines.',
+  description: 'Connect with expert freelance mechanics for on-demand, on-site auto repairs anywhere in the Philippines.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -33,6 +33,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { AvatarSync } from "@/components/avatar-sync"
 import { PWAProvider } from "@/lib/pwa-context"
 import { NotificationProvider } from "@/lib/notification-context"
+import { QueryProvider } from "@/components/providers/query-provider"
 
 export default function RootLayout({
   children,
@@ -47,13 +48,15 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-sans antialiased min-h-screen">
-        <PWAProvider>
-          <NotificationProvider>
-            <AvatarSync />
-            {children}
-          </NotificationProvider>
-        </PWAProvider>
+      <body className="font-sans antialiased min-h-screen" suppressHydrationWarning>
+        <QueryProvider>
+          <PWAProvider>
+            <NotificationProvider>
+              <AvatarSync />
+              {children}
+            </NotificationProvider>
+          </PWAProvider>
+        </QueryProvider>
         <Toaster position="top-center" richColors />
       </body>
     </html>

@@ -7,14 +7,23 @@ import type { Mechanic } from "@/lib/types"
 interface MechanicCardProps {
   mechanic: Mechanic
   distance?: number | null
+  onSelect?: () => void
+  isSelected?: boolean
 }
 
-export function MechanicCard({ mechanic, distance }: MechanicCardProps) {
+export function MechanicCard({ mechanic, distance, onSelect, isSelected }: MechanicCardProps) {
   const detailUrl = `/mechanics/${mechanic.id}`
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (onSelect) {
+      e.preventDefault()
+      onSelect()
+    }
+  }
+
   return (
-    <div className="glass-card shop-card-glow rounded-[2rem] overflow-hidden animate-in group">
-      <Link href={detailUrl} className="block">
+    <div className={`glass-card shop-card-glow rounded-[2rem] overflow-hidden animate-in group transition-all ${isSelected ? "ring-2 ring-turbo-orange shadow-[0_0_30px_rgba(255,95,0,0.35)] scale-[1.01]" : ""}`}>
+      <div onClick={handleCardClick} className="block cursor-pointer">
         <div className="p-6 pb-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-5 flex-1">
@@ -77,7 +86,7 @@ export function MechanicCard({ mechanic, distance }: MechanicCardProps) {
             </p>
           )}
         </div>
-      </Link>
+      </div>
 
       <div className="px-6 pb-6">
         <div className="flex items-center gap-3">

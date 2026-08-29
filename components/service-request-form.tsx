@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { submitServiceRequest } from "@/lib/actions"
+import { createClient } from "@/lib/supabase/client"
 import { MaterialIcon } from "./material-icon"
 import { SERVICE_TYPES } from "@/lib/types"
 import { format } from "date-fns"
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 interface ServiceRequestFormProps {
   mechanicId: string
@@ -34,6 +36,38 @@ export function ServiceRequestForm({
   const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [dateError, setDateError] = useState("")
+  const [activeBooking, setActiveBooking] = useState<{ id: string; status: string } | null>(null)
+  const [checkingActive, setCheckingActive] = useState(true)
+
+  useEffect(() => {
+    async function checkExistingActiveBooking() {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.email) {
+          const activeStatuses = ['pending', 'accepted', 'on_my_way', 'arrived', 'in_progress']
+          const { data: bookings } = await supabase
+            .from("service_requests")
+            .select("id, status")
+            .eq("mechanic_id", mechanicId)
+            .ilike("customer_email", user.email.toLowerCase().trim())
+            .in("status", activeStatuses)
+            .order("created_at", { ascending: false })
+            .limit(1)
+
+          if (bookings && bookings.length > 0) {
+            setActiveBooking(bookings[0])
+          }
+        }
+      } catch (err) {
+        console.error("Error checking active booking:", err)
+      } finally {
+        setCheckingActive(false)
+      }
+    }
+
+    checkExistingActiveBooking()
+  }, [mechanicId])
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Get digits only
@@ -124,6 +158,30 @@ export function ServiceRequestForm({
     }
   }
 
+  if (activeBooking) {
+    return (
+      <div className="glass-card rounded-3xl p-8 border-electric-blue/30 text-center bg-electric-blue/5 relative overflow-hidden">
+        <div className="w-16 h-16 bg-electric-blue/10 rounded-2xl flex items-center justify-center text-electric-blue mx-auto mb-4 border border-electric-blue/20 shadow-[0_0_30px_rgba(0,233,163,0.2)]">
+          <MaterialIcon name="pending_actions" className="text-3xl" />
+        </div>
+        <span className="text-[10px] font-black text-electric-blue uppercase tracking-[0.2em] bg-electric-blue/10 px-3 py-1 rounded-full border border-electric-blue/20">
+          Active Booking in Progress
+        </span>
+        <h4 className="text-foreground font-black uppercase tracking-tight text-lg mt-3 mb-2">
+          Request Already in Progress
+        </h4>
+        <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto mb-6 font-medium">
+          You already have an active request (<span className="text-electric-blue font-bold uppercase">{activeBooking.status.replace(/_/g, " ")}</span>) with this mechanic. You cannot book again until the current job is completed or cancelled.
+        </p>
+        <Link href="/profile">
+          <button className="h-14 px-8 bg-electric-blue text-midnight font-black uppercase tracking-widest text-xs rounded-2xl hover:scale-105 transition-transform shadow-lg shadow-electric-blue/20">
+            View Chat & Status
+          </button>
+        </Link>
+      </div>
+    )
+  }
+
   if (submitted) {
     return (
       <div className="glass-card p-8 rounded-3xl border border-foreground/10 text-center">
@@ -183,10 +241,11 @@ export function ServiceRequestForm({
 
         <div className="flex flex-col gap-2">
           <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            Vehicle Info
+            Vehicle Info *
           </label>
           <input
             name="vehicle_info"
+            required
             placeholder="e.g. Toyota Vios 2019"
             className="w-full h-14 bg-background/80 border border-foreground/10 rounded-xl px-4 text-foreground text-sm focus:ring-2 focus:ring-turbo-orange focus:outline-none transition-all placeholder:text-muted-foreground"
           />

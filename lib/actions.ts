@@ -2,39 +2,44 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import type { Shop, Mechanic, MechanicRequest, ServiceRequest, Review } from "./types"
+import type { Shop, Mechanic, MechanicRequest, ServiceRequest, Review, AdminMechanicNotice, CustomerReport, BannedUser } from "./types"
 import { strictRatelimit } from "./ratelimit"
 import { headers } from "next/headers"
 import webpush from 'web-push'
+import { getOrSetCache, invalidateCache } from "./redis"
 
 export async function getMechanics(options?: {
   city?: string
   service?: string
 }): Promise<Mechanic[]> {
-  const supabase = await createClient()
+  const cacheKey = `mechanics:${options?.city || "all"}:${options?.service || "all"}`
 
-  let query = supabase.from("mechanics").select("*")
+  return getOrSetCache(cacheKey, async () => {
+    const supabase = await createClient()
 
-  if (options?.city) {
-    query = query.eq("city", options.city)
-  }
+    let query = supabase.from("mechanics").select("*")
 
-  const { data, error } = await query.order("rating", { ascending: false })
+    if (options?.city) {
+      query = query.eq("city", options.city)
+    }
 
-  if (error) {
-    console.error("Error fetching mechanics:", JSON.stringify(error, null, 2))
-    return []
-  }
+    const { data, error } = await query.order("rating", { ascending: false })
 
-  let mechanics = (data || []) as Mechanic[]
+    if (error) {
+      console.error("Error fetching mechanics:", JSON.stringify(error, null, 2))
+      return []
+    }
 
-  if (options?.service) {
-    mechanics = mechanics.filter((m) =>
-      m.specializations?.some((s: string) => s.toLowerCase() === options.service!.toLowerCase())
-    )
-  }
+    let mechanics = (data || []) as Mechanic[]
 
-  return mechanics
+    if (options?.service) {
+      mechanics = mechanics.filter((m) =>
+        m.specializations?.some((s: string) => s.toLowerCase() === options.service!.toLowerCase())
+      )
+    }
+
+    return mechanics
+  }, 60) // Cache for 60 seconds
 }
 
 export async function getMechanicById(id: string): Promise<Mechanic | null> {
@@ -166,11 +171,70 @@ export async function submitServiceRequest(formData: FormData) {
   const message = formData.get("message") as string
   const scheduledDate = formData.get("scheduled_date") as string
 
-  if (!mechanicId || !customerName || !customerPhone || !servicePreference) {
-    return { success: false, error: "Please fill in all required fields." }
+  if (!mechanicId || !customerName || !customerPhone || !vehicleInfo || !servicePreference) {
+    return { success: false, error: "Please fill in all required fields including Vehicle Info." }
   }
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  // 0. Block Banned Car Owners / Users
+  if (user?.email) {
+    const { data: bannedRecord } = await supabase
+      .from("banned_users")
+      .select("reason")
+      .ilike("email", user.email.trim())
+      .maybeSingle()
+
+    if (bannedRecord) {
+      return {
+        success: false,
+        error: `Your account access has been suspended: ${bannedRecord.reason || "Violations of TaraFix Terms of Service."}`
+      }
+    }
+  }
+
+  // 1. Prevent Self-Booking if user is the mechanic
+  const { data: targetMechanic } = await supabase
+    .from("mechanics")
+    .select("email, name")
+    .eq("id", mechanicId)
+    .maybeSingle()
+
+  if (
+    user?.email && 
+    targetMechanic?.email && 
+    user.email.toLowerCase().trim() === targetMechanic.email.toLowerCase().trim()
+  ) {
+    return { 
+      success: false, 
+      error: "You cannot book your own mechanic profile." 
+    }
+  }
+
+  // 2. Prevent Duplicate Active Bookings with the same mechanic
+  const activeStatuses = ['pending', 'accepted', 'on_my_way', 'arrived', 'in_progress']
+  
+  let activeBookingQuery = supabase
+    .from("service_requests")
+    .select("id, status")
+    .eq("mechanic_id", mechanicId)
+    .in("status", activeStatuses)
+
+  if (user?.email) {
+    activeBookingQuery = activeBookingQuery.or(`customer_email.eq.${user.email.toLowerCase().trim()},customer_phone.eq.${customerPhone}`)
+  } else {
+    activeBookingQuery = activeBookingQuery.eq("customer_phone", customerPhone)
+  }
+
+  const { data: existingActiveBooking } = await activeBookingQuery.maybeSingle()
+
+  if (existingActiveBooking) {
+    return {
+      success: false,
+      error: "You already have an active service request with this mechanic. Please check your profile or chat to view its status."
+    }
+  }
+
   const customerAvatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null
 
   const { error } = await supabase.from("service_requests").insert({
@@ -189,6 +253,48 @@ export async function submitServiceRequest(formData: FormData) {
   if (error) {
     console.error("Error submitting service request:", error)
     return { success: false, error: "Something went wrong. Please try again." }
+  }
+
+  // Non-blocking Web Push Notification to Mechanic's Phone (even when app is closed)
+  try {
+    const { data: mech } = await supabase
+      .from("mechanics")
+      .select("email, name")
+      .eq("id", mechanicId)
+      .maybeSingle()
+
+    if (mech?.email) {
+      const { data: subs } = await supabase
+        .from("push_subscriptions")
+        .select("subscription")
+        .eq("user_email", mech.email.toLowerCase().trim())
+
+      if (subs && subs.length > 0 && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+        webpush.setVapidDetails(
+          process.env.VAPID_SUBJECT || 'mailto:admin@tarafix.com',
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+          process.env.VAPID_PRIVATE_KEY
+        )
+
+        const payload = JSON.stringify({
+          title: `🚗 New Service Request from ${customerName}`,
+          body: `${serviceType || 'General Auto Service'} (${servicePreference || 'Appointment'}) - ${vehicleInfo || 'Vehicle'}`,
+          url: `/profile`
+        })
+
+        await Promise.allSettled(
+          subs.map(s =>
+            webpush.sendNotification(s.subscription as any, payload).catch((err: any) => {
+              if (err.statusCode === 410 || err.statusCode === 404) {
+                return supabase.from("push_subscriptions").delete().eq("subscription", s.subscription)
+              }
+            })
+          )
+        )
+      }
+    }
+  } catch (pushErr) {
+    console.error("Push dispatch error (non-critical):", pushErr)
   }
 
   return { success: true }
@@ -555,15 +661,27 @@ export async function checkIfAlreadyMechanic(email: string) {
 
   if (mechanic) return { registered: true, status: 'approved' }
 
-  // 2. Check if they have a pending request
+  // 2. Check if they have a pending or revoked/rejected request
   const { data: request } = await supabase
     .from("mechanic_requests")
-    .select("status")
+    .select("status, rejection_reason, created_at")
     .eq("email", email)
-    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle()
 
-  if (request) return { registered: true, status: 'pending' }
+  if (request) {
+    if (request.status === 'pending') {
+      return { registered: true, status: 'pending' }
+    }
+    if (request.status === 'rejected' || request.status === 'revoked') {
+      return { 
+        registered: false, 
+        status: request.status, 
+        reason: request.rejection_reason || 'Administrative review: your mechanic access was revoked.' 
+      }
+    }
+  }
 
   return { registered: false }
 }
@@ -776,14 +894,21 @@ export async function updateMechanicStatus(id: string, isAvailable: boolean) {
 
 export async function updateMechanicProfile(email: string, data: Partial<Mechanic>) {
   const supabase = await createClient()
+  const updatePayload: Record<string, any> = {
+    name: data.name,
+    bio: data.bio,
+    specializations: data.specializations,
+    phone: data.phone,
+  }
+
+  if (data.latitude !== undefined) updatePayload.latitude = data.latitude
+  if (data.longitude !== undefined) updatePayload.longitude = data.longitude
+  if (data.city !== undefined) updatePayload.city = data.city
+  if (data.barangay !== undefined) updatePayload.barangay = data.barangay
+
   const { error } = await supabase
     .from("mechanics")
-    .update({
-      name: data.name,
-      bio: data.bio,
-      specializations: data.specializations,
-      phone: data.phone
-    })
+    .update(updatePayload)
     .eq("email", email)
 
   if (error) {
@@ -791,8 +916,210 @@ export async function updateMechanicProfile(email: string, data: Partial<Mechani
     return { success: false, error: "Failed to update profile." }
   }
 
+  await invalidateCache("mechanics:all:all")
   revalidatePath('/profile')
+  revalidatePath('/mechanics')
+  revalidatePath('/map')
+  revalidatePath('/')
   return { success: true }
+}
+
+export async function revokeMechanicAccess(mechanicId: string, reason?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const ALLOWED_ADMINS = [
+    "siliacay.javier@gmail.com",
+    "kacaballes03539@liceo.edu.ph",
+    "glloydn.22@gmail.com",
+    "javiersiliacay12@gmail.com"
+  ]
+
+  if (!user || !user.email || !ALLOWED_ADMINS.some(e => e.toLowerCase() === user.email?.toLowerCase())) {
+    return { success: false, error: "Unauthorized: Only administrators can revoke mechanic access." }
+  }
+
+  // 1. Fetch mechanic email first before deleting
+  const { data: targetMechanic } = await supabase
+    .from("mechanics")
+    .select("email, name")
+    .eq("id", mechanicId)
+    .maybeSingle()
+
+  const revokeReason = reason?.trim() || "Administrative decision: Access revoked by platform admin."
+
+  // 2. Delete mechanic from mechanics table
+  const { error: deleteError } = await supabase
+    .from("mechanics")
+    .delete()
+    .eq("id", mechanicId)
+
+  if (deleteError) {
+    console.error("Error revoking mechanic access:", deleteError)
+    return { success: false, error: "Failed to revoke mechanic access from database." }
+  }
+
+  // 3. Mark or create mechanic_requests record as 'revoked' with the admin's reason
+  if (targetMechanic?.email) {
+    const { data: existingRequest } = await supabase
+      .from("mechanic_requests")
+      .select("id")
+      .eq("email", targetMechanic.email)
+      .maybeSingle()
+
+    if (existingRequest) {
+      await supabase
+        .from("mechanic_requests")
+        .update({ status: 'revoked', rejection_reason: revokeReason })
+        .eq("id", existingRequest.id)
+    } else {
+      await supabase
+        .from("mechanic_requests")
+        .insert({
+          full_name: targetMechanic.name,
+          email: targetMechanic.email,
+          contact_number: "N/A",
+          status: 'revoked',
+          rejection_reason: revokeReason
+        })
+    }
+  }
+
+  // 4. Invalidate cache & revalidate all routes
+  await invalidateCache("mechanics:all:all")
+  revalidatePath('/admin')
+  revalidatePath('/mechanics')
+  revalidatePath('/map')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function revokeUserAccess(payload: {
+  email: string
+  role: 'customer' | 'mechanic'
+  mechanicId?: string | null
+  reason?: string
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const ALLOWED_ADMINS = [
+    "siliacay.javier@gmail.com",
+    "kacaballes03539@liceo.edu.ph",
+    "glloydn.22@gmail.com",
+    "javiersiliacay12@gmail.com"
+  ]
+
+  if (!user || !user.email || !ALLOWED_ADMINS.some(e => e.toLowerCase() === user.email?.toLowerCase())) {
+    return { success: false, error: "Unauthorized: Only administrators can revoke user access." }
+  }
+
+  const cleanEmail = payload.email.toLowerCase().trim()
+  const banReason = payload.reason?.trim() || "Access revoked due to verified violations of TaraFix Terms of Service."
+
+  if (payload.role === 'mechanic' && payload.mechanicId) {
+    return await revokeMechanicAccess(payload.mechanicId, banReason)
+  }
+
+  // 1. Insert/Update in banned_users table
+  const { error: banError } = await supabase
+    .from("banned_users")
+    .upsert({
+      email: cleanEmail,
+      reason: banReason,
+      banned_by: user.email.toLowerCase().trim()
+    }, { onConflict: 'email' })
+
+  if (banError) {
+    console.error("Error banning user:", banError)
+    return { success: false, error: "Failed to record user ban in database." }
+  }
+
+  // 2. Also revoke any pending active service requests created by this banned customer
+  await supabase
+    .from("service_requests")
+    .update({ status: 'cancelled' })
+    .eq("customer_email", cleanEmail)
+    .in("status", ['pending', 'accepted', 'on_my_way', 'arrived', 'in_progress'])
+
+  revalidatePath('/admin')
+  revalidatePath('/profile')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function getBannedUsers() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const ALLOWED_ADMINS = [
+    "siliacay.javier@gmail.com",
+    "kacaballes03539@liceo.edu.ph",
+    "glloydn.22@gmail.com",
+    "javiersiliacay12@gmail.com"
+  ]
+
+  if (!user || !user.email || !ALLOWED_ADMINS.some(e => e.toLowerCase() === user.email?.toLowerCase())) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from("banned_users")
+    .select("*")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching banned users:", error)
+    return []
+  }
+
+  return (data || []) as BannedUser[]
+}
+
+export async function unbanUser(email: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const ALLOWED_ADMINS = [
+    "siliacay.javier@gmail.com",
+    "kacaballes03539@liceo.edu.ph",
+    "glloydn.22@gmail.com",
+    "javiersiliacay12@gmail.com"
+  ]
+
+  if (!user || !user.email || !ALLOWED_ADMINS.some(e => e.toLowerCase() === user.email?.toLowerCase())) {
+    return { success: false, error: "Unauthorized: Only administrators can unban accounts." }
+  }
+
+  const cleanEmail = email.toLowerCase().trim()
+  const { error } = await supabase
+    .from("banned_users")
+    .delete()
+    .eq("email", cleanEmail)
+
+  if (error) {
+    console.error("Error unbanning user:", error)
+    return { success: false, error: "Failed to remove ban record." }
+  }
+
+  revalidatePath('/admin')
+  revalidatePath('/profile')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function checkUserBanStatus(email: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("banned_users")
+    .select("reason, created_at")
+    .ilike("email", email.trim())
+    .maybeSingle()
+
+  if (data) {
+    return { isBanned: true, reason: data.reason }
+  }
+  return { isBanned: false, reason: null }
 }
 
 export async function syncCurrentUserAvatar() {
@@ -933,4 +1260,212 @@ export async function getMechanicStats(mechanicId: string) {
         reviewCount: reviews?.length || 0,
         lastActivity: lastReq?.created_at || null
     }
+}
+
+export async function sendAdminMechanicNotice(payload: {
+  mechanicId: string
+  mechanicEmail: string
+  title?: string
+  message: string
+  noticeType?: 'reminder' | 'warning' | 'inactivity' | 'urgent'
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const ALLOWED_ADMINS = [
+    "siliacay.javier@gmail.com",
+    "kacaballes03539@liceo.edu.ph",
+    "glloydn.22@gmail.com",
+    "javiersiliacay12@gmail.com"
+  ]
+
+  if (!user || !user.email || !ALLOWED_ADMINS.some(e => e.toLowerCase() === user.email?.toLowerCase())) {
+    return { success: false, error: "Unauthorized: Only administrators can send notices." }
+  }
+
+  if (!payload.message || !payload.message.trim()) {
+    return { success: false, error: "Please provide a notice message." }
+  }
+
+  const formattedMechanicId = payload.mechanicId && payload.mechanicId.trim().length === 36 ? payload.mechanicId.trim() : null;
+
+  const { error } = await supabase.from("admin_mechanic_notices").insert({
+    mechanic_id: formattedMechanicId,
+    mechanic_email: payload.mechanicEmail.toLowerCase().trim(),
+    admin_email: user.email.toLowerCase().trim(),
+    title: payload.title?.trim() || "Admin Notice",
+    message: payload.message.trim(),
+    notice_type: payload.noticeType || "reminder",
+    is_read: false
+  })
+
+  if (error) {
+    console.error("Error creating admin notice:", JSON.stringify(error, null, 2))
+    return { success: false, error: "Failed to send notice: " + (error.message || "Unknown error") }
+  }
+
+  return { success: true }
+}
+
+export async function getMechanicUnreadNotices(email: string) {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from("admin_mechanic_notices")
+    .select("*")
+    .ilike("mechanic_email", email.trim())
+    .eq("is_read", false)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching unread admin notices:", error)
+    return []
+  }
+
+  return (data || []) as AdminMechanicNotice[]
+}
+
+export async function acknowledgeMechanicNotice(noticeId: string) {
+  const supabase = await createClient()
+  
+  const { error } = await supabase
+    .from("admin_mechanic_notices")
+    .update({
+      is_read: true,
+      read_at: new Date().toISOString()
+    })
+    .eq("id", noticeId)
+
+  if (error) {
+    console.error("Error acknowledging notice:", error)
+    return { success: false, error: "Failed to acknowledge notice." }
+  }
+
+  revalidatePath('/profile')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function submitCustomerReport(payload: {
+  requestId: string
+  mechanicId: string
+  mechanicName?: string
+  mechanicEmail?: string
+  customerEmail: string
+  customerName: string
+  reporterRole?: 'customer' | 'mechanic'
+  reasonCategory: string
+  description: string
+}) {
+  const supabase = await createClient()
+
+  if (!payload.description || !payload.description.trim()) {
+    return { success: false, error: "Please describe what occurred so our moderation team can investigate." }
+  }
+
+  // Fetch mechanic details if missing
+  let mechEmail = payload.mechanicEmail
+  let mechName = payload.mechanicName
+
+  if ((!mechEmail || !mechName) && payload.mechanicId) {
+    const { data: mech } = await supabase
+      .from("mechanics")
+      .select("name, email")
+      .eq("id", payload.mechanicId)
+      .maybeSingle()
+    if (mech) {
+      mechName = mechName || mech.name
+      mechEmail = mechEmail || mech.email
+    }
+  }
+
+  const { error } = await supabase.from("customer_reports").insert({
+    request_id: payload.requestId || null,
+    customer_email: payload.customerEmail.toLowerCase().trim(),
+    customer_name: payload.customerName || "Car Owner",
+    mechanic_id: payload.mechanicId || null,
+    mechanic_email: mechEmail?.toLowerCase().trim() || null,
+    mechanic_name: mechName || "Technician",
+    reporter_role: payload.reporterRole || 'customer',
+    reason_category: payload.reasonCategory || "other",
+    description: payload.description.trim(),
+    status: "pending"
+  })
+
+  if (error) {
+    console.error("Error creating customer report:", error)
+    return { success: false, error: "Failed to submit report. Please try again." }
+  }
+
+  revalidatePath('/admin')
+  return { success: true }
+}
+
+export async function getCustomerReports() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const ALLOWED_ADMINS = [
+    "siliacay.javier@gmail.com",
+    "kacaballes03539@liceo.edu.ph",
+    "glloydn.22@gmail.com",
+    "javiersiliacay12@gmail.com"
+  ]
+
+  if (!user || !user.email || !ALLOWED_ADMINS.some(e => e.toLowerCase() === user.email?.toLowerCase())) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from("customer_reports")
+    .select("*, service_requests(customer_phone, vehicle_info, service_type, service_preference, scheduled_date, message)")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching customer reports:", error)
+    return []
+  }
+
+  return (data || []).map((r: any) => ({
+    ...r,
+    customer_phone: r.service_requests?.customer_phone || null,
+    vehicle_info: r.service_requests?.vehicle_info || null,
+    service_type: r.service_requests?.service_type || null,
+    service_preference: r.service_requests?.service_preference || null,
+    scheduled_date: r.service_requests?.scheduled_date || null,
+    booking_message: r.service_requests?.message || null,
+  })) as CustomerReport[]
+}
+
+export async function updateCustomerReportStatus(reportId: string, status: 'pending' | 'warned' | 'revoked' | 'dismissed', adminNotes?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const ALLOWED_ADMINS = [
+    "siliacay.javier@gmail.com",
+    "kacaballes03539@liceo.edu.ph",
+    "glloydn.22@gmail.com",
+    "javiersiliacay12@gmail.com"
+  ]
+
+  if (!user || !user.email || !ALLOWED_ADMINS.some(e => e.toLowerCase() === user.email?.toLowerCase())) {
+    return { success: false, error: "Unauthorized: Only administrators can modify report statuses." }
+  }
+
+  const { error } = await supabase
+    .from("customer_reports")
+    .update({
+      status,
+      admin_notes: adminNotes || null,
+      resolved_at: status !== 'pending' ? new Date().toISOString() : null
+    })
+    .eq("id", reportId)
+
+  if (error) {
+    console.error("Error updating customer report status:", error)
+    return { success: false, error: "Failed to update report status." }
+  }
+
+  revalidatePath('/admin')
+  return { success: true }
 }

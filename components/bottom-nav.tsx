@@ -35,12 +35,14 @@ export function BottomNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 glass-dark border-t border-white/5 px-8 pt-4 pb-safe max-w-lg mx-auto flex justify-between items-center z-[2000] rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+    <nav id="tour-bottom-nav" className="md:hidden fixed bottom-0 left-0 right-0 glass-dark border-t border-white/5 px-8 pt-4 pb-safe max-w-lg mx-auto flex justify-between items-center z-[2000] rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
       {navItems.map((item) => {
         const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+        const tourId = item.label === "Profile" ? "tour-nav-profile" : item.label === "Explore" ? "tour-nav-explore" : undefined
         return (
           <button
             key={item.href}
+            id={tourId}
             onClick={() => handleNav(item.href)}
             className={`flex flex-col items-center gap-1.5 transition-colors relative ${isActive ? "text-turbo-orange" : "text-muted-foreground"}`}
           >

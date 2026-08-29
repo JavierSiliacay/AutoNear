@@ -21,14 +21,16 @@ export default async function MechanicsPage(props: {
         }
       />
       
-      <main className="max-w-lg mx-auto px-5 pt-6 animate-in">
-        <header className="mb-8">
-          <span className="text-turbo-orange font-black text-[10px] uppercase tracking-[0.4em]">TaraFix Network</span>
-          <h1 className="text-4xl font-black text-foreground tracking-tighter mt-1">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 lg:pt-10 animate-in">
+        <header className="mb-8 lg:mb-10">
+          <span className="text-turbo-orange font-black text-[10px] uppercase tracking-[0.4em] bg-turbo-orange/10 px-3 py-1 rounded-full border border-turbo-orange/20 inline-block mb-2">
+            TaraFix Network
+          </span>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-foreground tracking-tighter mt-1 uppercase italic">
             EXPERT <span className="text-electric-blue">MECHANICS</span>
           </h1>
-          <p className="text-muted-foreground text-xs font-medium mt-2">
-            Professional mechanics available for on-site assistance.
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium mt-2 max-w-xl">
+            Expert, freelance mechanics available for home service and roadside assistance.
           </p>
         </header>
 

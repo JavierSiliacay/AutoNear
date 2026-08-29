@@ -7,6 +7,8 @@ import type { ChatMessage } from '@/lib/types';
 interface NotificationContextType {
     unreadCounts: Record<string, number>;
     clearUnreadCount: (requestId: string) => void;
+    unviewedAppointments: string[];
+    markAppointmentViewed: (requestId: string) => void;
     setActiveChatId: (id: string | null) => void;
     subscribeToPush: () => Promise<boolean>;
     isPushSupported: boolean;
@@ -17,6 +19,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+    const [unviewedAppointments, setUnviewedAppointments] = useState<string[]>([]);
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const [isPushSupported, setIsPushSupported] = useState(false);
     const activeChatIdRef = useRef<string | null>(null);
@@ -25,12 +28,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const mechanicProfileRef = useRef<any>(null);
     const lastAudioPlayRef = useRef<number>(0);
     const processedMessageIdsRef = useRef<Set<string>>(new Set());
+    const processedRequestIdsRef = useRef<Set<string>>(new Set());
     const supabase = createClient();
 
     const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BEx6mp-8rKcS0L08Ca7epwKz3TTPGFvqbelrnYLdM-HhjoPUM-7Z-0Gi9Pcg8Zig5f_Prj5q3DKGYS4Fnxqfu3g";
 
-    // Sum of all unread counts
-    const totalUnread = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+    // Sum of all unread chat messages + unviewed new appointment requests
+    const totalUnread = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0) + unviewedAppointments.length;
 
     const urlBase64ToUint8Array = (base64String: string) => {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -60,7 +64,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         // Use a UNIQUE channel name per user to prevent crosstalk
         globalChannel = supabase
             .channel(`notifications:${email.replace(/[^a-zA-Z0-9]/g, '_')}`)
-            // 1. Listen for MY NEW Service Requests (to update our watchlist)
+            // 1. Listen for MY NEW Service Requests (Appointment Bookings)
             .on(
                 'postgres_changes',
                 {
@@ -70,7 +74,28 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 },
                 (payload) => {
                     const newReq = payload.new as any;
-                    if (newReq.customer_email === userEmailRef.current || newReq.mechanic_id === mechanicProfileRef?.current?.id) {
+                    
+                    // If a customer just booked with THIS mechanic
+                    if (mechanicProfileRef?.current?.id && newReq.mechanic_id === mechanicProfileRef.current.id) {
+                        myRequestIdsRef.current.add(newReq.id);
+                        
+                        setUnviewedAppointments(prev => {
+                            if (prev.includes(newReq.id)) return prev;
+                            const updated = [...prev, newReq.id];
+                            try {
+                                localStorage.setItem(`unviewed_appointments_${email}`, JSON.stringify(updated));
+                            } catch {}
+                            return updated;
+                        });
+
+                        // Play sound alert for new booking
+                        const now = Date.now();
+                        if (now - lastAudioPlayRef.current > 1500) {
+                            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                            audio.play().catch(() => {});
+                            lastAudioPlayRef.current = now;
+                        }
+                    } else if (newReq.customer_email === userEmailRef.current) {
                         myRequestIdsRef.current.add(newReq.id);
                     }
                 }
@@ -102,7 +127,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                             [newMsg.request_id]: (prev[newMsg.request_id] || 0) + 1
                         }));
                         
-                        // Audio Debouncing: Don't spam the user with sounds if 7 messages arrive at once
+                        // Audio Debouncing
                         const now = Date.now();
                         if (now - lastAudioPlayRef.current > 1500) {
                             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
@@ -147,11 +172,31 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             if (mechanic) {
                 const { data: mechRequests } = await supabase
                     .from('service_requests')
-                    .select('id')
+                    .select('id, status, created_at')
                     .eq('mechanic_id', mechanic.id);
                 
                 if (mechRequests) {
                     allIds = [...allIds, ...mechRequests.map(r => r.id)];
+                    
+                    // Retrieve persistent unviewed appointment list
+                    try {
+                        const saved = localStorage.getItem(`unviewed_appointments_${user.email}`);
+                        if (saved) {
+                            const parsed = JSON.parse(saved) as string[];
+                            // Filter only existing ones
+                            const validIds = parsed.filter(id => mechRequests.some(r => r.id === id));
+                            setUnviewedAppointments(validIds);
+                        } else {
+                            // If first time, mark pending appointments from last 24 hours as unviewed
+                            const recentPending = mechRequests
+                                .filter(r => r.status === 'pending' && (Date.now() - new Date(r.created_at).getTime() < 86400000))
+                                .map(r => r.id);
+                            if (recentPending.length > 0) {
+                                setUnviewedAppointments(recentPending);
+                                localStorage.setItem(`unviewed_appointments_${user.email}`, JSON.stringify(recentPending));
+                            }
+                        }
+                    } catch {}
                 }
             }
 
@@ -184,6 +229,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         };
     }, [supabase]);
 
+    const markAppointmentViewed = (requestId: string) => {
+        setUnviewedAppointments(prev => {
+            if (!prev.includes(requestId)) return prev;
+            const next = prev.filter(id => id !== requestId);
+            if (userEmail) {
+                try {
+                    localStorage.setItem(`unviewed_appointments_${userEmail}`, JSON.stringify(next));
+                } catch {}
+            }
+            return next;
+        });
+    };
+
     const clearUnreadCount = (requestId: string) => {
         setUnreadCounts(prev => {
             if (!prev[requestId]) return prev;
@@ -191,11 +249,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             delete next[requestId];
             return next;
         });
+        markAppointmentViewed(requestId);
     };
 
     const setActiveChatId = (id: string | null) => {
         activeChatIdRef.current = id;
-        if (id) clearUnreadCount(id);
+        if (id) {
+            clearUnreadCount(id);
+            markAppointmentViewed(id);
+        }
     };
 
     const subscribeToPush = async () => {
@@ -227,7 +289,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     return (
-        <NotificationContext.Provider value={{ unreadCounts, clearUnreadCount, setActiveChatId, subscribeToPush, isPushSupported, totalUnread }}>
+        <NotificationContext.Provider value={{ unreadCounts, clearUnreadCount, unviewedAppointments, markAppointmentViewed, setActiveChatId, subscribeToPush, isPushSupported, totalUnread }}>
             {children}
         </NotificationContext.Provider>
     );

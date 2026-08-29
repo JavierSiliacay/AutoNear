@@ -38,6 +38,51 @@ export interface Mechanic {
   service_preference: ('Home Service' | 'On Shop')[]
   available_days: string[]
   created_at: string
+  distance?: number
+}
+
+export interface AdminMechanicNotice {
+  id: string
+  mechanic_id: string | null
+  mechanic_email: string
+  admin_email: string
+  title: string
+  message: string
+  notice_type: 'reminder' | 'warning' | 'inactivity' | 'urgent'
+  is_read: boolean
+  read_at: string | null
+  created_at: string
+}
+
+export interface CustomerReport {
+  id: string
+  request_id: string | null
+  customer_email: string
+  customer_name: string
+  customer_phone?: string | null
+  vehicle_info?: string | null
+  service_type?: string | null
+  service_preference?: string | null
+  scheduled_date?: string | null
+  booking_message?: string | null
+  mechanic_id: string | null
+  mechanic_email: string | null
+  mechanic_name: string | null
+  reporter_role: 'customer' | 'mechanic'
+  reason_category: string
+  description: string
+  status: 'pending' | 'warned' | 'revoked' | 'dismissed'
+  admin_notes: string | null
+  resolved_at: string | null
+  created_at: string
+}
+
+export interface BannedUser {
+  id: string
+  email: string
+  reason: string
+  banned_by: string
+  created_at: string
 }
 
 export interface ShopRequest {

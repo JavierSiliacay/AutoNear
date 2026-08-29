@@ -17,6 +17,13 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
+    // Register Service Worker for Background Push Notifications
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.error('Service worker registration failed:', err);
+      });
+    }
+
     // Check if already installed
     if (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone) {
       setIsInstalled(true);

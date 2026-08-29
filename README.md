@@ -20,7 +20,7 @@
 
 </div>
 
-**TaraFix** is a premier hyperlocal ecosystem designed to revolutionize how vehicle owners in the Philippines maintain their transport. More than just a directory, TaraFix is a comprehensive bridge connecting motorists with a vetted network of automotive professionals—from expert mechanics and vulcanizing shops to specialized oil change centers and car washes.
+**TaraFix** is a premier hyperlocal ecosystem designed to revolutionize how vehicle owners in the Philippines maintain their transport. More than just a directory, TaraFix is a comprehensive bridge connecting motorists with a expert network of automotive professionals—from expert mechanics and vulcanizing shops to specialized oil change centers and car washes.
 
 Built to address the lack of reliable, real-time service information, TaraFix empowers users to find immediate help while providing shop owners a digital platform to grow their business through a verified, trust-based system.
 
