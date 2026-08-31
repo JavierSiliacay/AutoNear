@@ -14,21 +14,22 @@ const redis = hasRedis
 // Mock success object for when Redis is missing
 const mockSuccess = { success: true, limit: 10, remaining: 10, reset: 0 };
 
-// Create a general rate limiter: 10 requests every 10 seconds
+// Create a high-capacity general rate limiter: 1,000 requests every 60 seconds
+// Safely accommodates hundreds of simultaneous users sharing school, office, or mobile carrier CGNAT IPs
 export const generalRatelimit = redis 
   ? new Ratelimit({
       redis: redis,
-      limiter: Ratelimit.slidingWindow(10, "10 s"),
+      limiter: Ratelimit.slidingWindow(1000, "60 s"),
       analytics: true,
       prefix: "@upstash/ratelimit/general",
     })
   : { limit: async () => mockSuccess };
 
-// Create a strict rate limiter for forms/auth: 3 requests every 1 minute
+// Create a strict rate limiter for abuse/spam prevention: 120 requests every 60 seconds
 export const strictRatelimit = redis
   ? new Ratelimit({
       redis: redis,
-      limiter: Ratelimit.slidingWindow(3, "60 s"),
+      limiter: Ratelimit.slidingWindow(120, "60 s"),
       analytics: true,
       prefix: "@upstash/ratelimit/strict",
     })

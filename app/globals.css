@@ -150,3 +150,18 @@
   animation: swayBody 3s ease-in-out infinite;
 }
 
+@keyframes drawCheck {
+  0% {
+    stroke-dashoffset: 36;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-draw-check {
+  stroke-dasharray: 36;
+  stroke-dashoffset: 36;
+  animation: drawCheck 0.85s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
+}
+

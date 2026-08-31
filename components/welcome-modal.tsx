@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { X, ArrowRight, ArrowLeft, Check, Compass, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MaterialIcon } from "@/components/material-icon";
@@ -38,6 +39,7 @@ const TOUR_STEPS: TourStep[] = [
 ];
 
 export function WelcomeModal() {
+  const router = useRouter();
   const [phase, setPhase] = useState<"hidden" | "intro" | "spotlight" | "completed" | "role_selection">("hidden");
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -263,6 +265,9 @@ export function WelcomeModal() {
       localStorage.setItem("tarafix_user_role", role);
       handleFinishTour();
       window.dispatchEvent(new Event("tarafix_role_changed"));
+      if (role === "mechanic") {
+        router.push("/register-mechanic");
+      }
     };
 
     return (

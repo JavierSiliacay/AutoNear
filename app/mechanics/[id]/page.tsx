@@ -6,6 +6,8 @@ import { BottomNav } from "@/components/bottom-nav"
 import { MaterialIcon } from "@/components/material-icon"
 import { ServiceRequestForm } from "@/components/service-request-form"
 import { AvailabilityStatus } from "@/components/availability-status"
+import { MechanicAvatarLightbox } from "@/components/mechanic-avatar-lightbox"
+import { getPresenceStatus } from "@/lib/presence"
 
 export const dynamic = "force-dynamic"
 
@@ -57,6 +59,8 @@ export default async function MechanicDetailPage(props: {
     ? `https://www.google.com/maps?q=${mechanic.latitude},${mechanic.longitude}`
     : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${mechanic.name}, ${mechanic.city}, ${mechanic.province}`)}${origin ? `&origin=${origin}` : ""}`;
 
+  const presence = getPresenceStatus(mechanic.last_active_at)
+
   return (
     <div className="min-h-screen pb-32">
       {/* Header */}
@@ -89,15 +93,12 @@ export default async function MechanicDetailPage(props: {
                   </div>
                 )}
                 <div className="flex items-center gap-5">
-                  {mechanic.image_url ? (
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl overflow-hidden border-2 border-turbo-orange/30 shadow-lg shrink-0">
-                      <img src={mechanic.image_url} alt={mechanic.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    </div>
-                  ) : (
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-slate-800 flex items-center justify-center text-3xl overflow-hidden border border-white/10 shrink-0">
-                      <MaterialIcon name="person" className="text-muted-foreground" />
-                    </div>
-                  )}
+                  <MechanicAvatarLightbox
+                    imageUrl={mechanic.image_url}
+                    name={mechanic.name}
+                    subtitle={[mechanic.city, mechanic.province].filter(Boolean).join(", ")}
+                    presence={presence}
+                  />
                   <div className="flex flex-col flex-1 min-w-0">
                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-foreground italic tracking-tighter uppercase leading-tight truncate">
                       {mechanic.name}
@@ -107,7 +108,7 @@ export default async function MechanicDetailPage(props: {
                       {mechanic.city}, {mechanic.province}
                     </p>
                     <div className="flex">
-                      <AvailabilityStatus initialStatus={mechanic.is_available} mechanicId={mechanic.id} />
+                      <AvailabilityStatus initialStatus={mechanic.is_available} mechanicId={mechanic.id} lastActiveAt={mechanic.last_active_at} />
                     </div>
                   </div>
                 </div>

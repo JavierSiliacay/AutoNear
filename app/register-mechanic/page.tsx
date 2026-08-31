@@ -27,8 +27,8 @@ export default function RegisterMechanicPage() {
       }
 
       if (!activeUser) {
-        // Redirect to login with the message for unauthenticated users
-        router.push('/login?message=salamat')
+        // Redirect to login with callback URL so user returns to registration
+        router.push('/login?message=salamat&next=/register-mechanic')
       } else {
         setLoading(false)
       }

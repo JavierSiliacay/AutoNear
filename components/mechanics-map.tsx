@@ -169,6 +169,7 @@ export function MechanicsMap({
           .filter((m) => m.latitude && m.longitude)
           .map((mechanic) => {
             const isSelected = selectedMechanic?.id === mechanic.id
+            const isOnline = (mechanic.last_active_at && (Date.now() - new Date(mechanic.last_active_at).getTime()) < 180000)
             const pinIcon = L.divIcon({
               className: "custom-mechanic-pin",
               html: `
@@ -179,7 +180,7 @@ export function MechanicsMap({
                       : `<div class="w-full h-full flex items-center justify-center bg-slate-800 text-foreground font-black text-xs">${mechanic.name[0]}</div>`
                   }
                   <div class="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full border border-midnight ${
-                    mechanic.is_available ? "bg-emerald-400" : "bg-red-500"
+                    isOnline ? "bg-emerald-400 animate-pulse" : "bg-red-500"
                   }"></div>
                 </div>
               `,
@@ -189,7 +190,7 @@ export function MechanicsMap({
 
             return (
               <Marker
-                key={`${mechanic.id}-${isSelected}`}
+                key={`${mechanic.id}-${isOnline ? 'online' : 'offline'}-${isSelected}`}
                 position={[mechanic.latitude!, mechanic.longitude!]}
                 icon={pinIcon}
                 eventHandlers={{

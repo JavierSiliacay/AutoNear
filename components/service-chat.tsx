@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { MaterialIcon } from './material-icon';
-import { getMessages, sendChatMessage, updateServiceRequestStatus, sendServiceQuote, respondToQuote, submitReview, uploadChatImage, getSignedUrls, submitCustomerReport } from '@/lib/actions';
+import { getMessages, sendChatMessage, updateServiceRequestStatus, sendServiceQuote, respondToQuote, submitReview, uploadChatImage, getSignedUrls, submitCustomerReport, getUserPresence } from '@/lib/actions';
 import type { ChatMessage, ServiceRequest } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
+import { getPresenceStatus } from '@/lib/presence';
 
 interface ServiceChatProps {
     requestId: string;
@@ -21,6 +22,7 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
     const [isLoading, setIsLoading] = useState(true);
     const [status, setStatus] = useState<ServiceRequest['status']>('pending');
     const [pendingStatus, setPendingStatus] = useState<ServiceRequest['status'] | null>(null);
+    const [recipientLastActiveAt, setRecipientLastActiveAt] = useState<string | null>(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [requestData, setRequestData] = useState<ServiceRequest | null>(null);
     const [quoteAmount, setQuoteAmount] = useState('');
@@ -127,6 +129,18 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
         if (data) {
             setRequestData(data as ServiceRequest);
             setStatus(data.status as ServiceRequest['status']);
+
+            // Fetch live presence of the other chat participant (Car Owner or Mechanic)
+            try {
+                const isCustomer = currentUserEmail && data.customer_email && currentUserEmail.toLowerCase().trim() === data.customer_email.toLowerCase().trim();
+                if (!isCustomer && data.customer_email) {
+                    const res = await getUserPresence(data.customer_email);
+                    if (res.last_active_at) setRecipientLastActiveAt(res.last_active_at);
+                } else if (data.mechanic_id) {
+                    const { data: mech } = await supabase.from('mechanics').select('last_active_at').eq('id', data.mechanic_id).single();
+                    if (mech?.last_active_at) setRecipientLastActiveAt(mech.last_active_at);
+                }
+            } catch {}
         }
     }
 
@@ -333,11 +347,14 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
                 {/* Header */}
                 <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/5">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-turbo-orange/20 rounded-full flex items-center justify-center text-turbo-orange border border-turbo-orange/30 overflow-hidden">
+                        <div className="relative w-10 h-10 bg-turbo-orange/20 rounded-full flex items-center justify-center text-turbo-orange border border-turbo-orange/30 overflow-hidden shrink-0">
                             {recipientAvatarUrl ? (
                                 <img src={recipientAvatarUrl} alt={recipientName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                                 <MaterialIcon name={currentUserRole === 'admin' ? "person" : currentUserRole === 'mechanic' ? "person" : "engineering"} />
+                            )}
+                            {getPresenceStatus(recipientLastActiveAt).isOnline && (
+                                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-midnight z-10" title="Active Now" />
                             )}
                         </div>
                         <div>
@@ -352,9 +369,30 @@ export function ServiceChat({ requestId, recipientName, recipientAvatarUrl, curr
                                     {status.replace(/_/g, ' ')}
                                 </div>
                             </div>
-                            <p className="text-[10px] font-black text-turbo-orange uppercase tracking-widest">
-                                {currentUserRole === 'admin' ? 'Customer Message' : currentUserRole === 'customer' ? 'Mechanic Message' : 'Customer Message'}
-                            </p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-[10px] font-black text-turbo-orange uppercase tracking-widest">
+                                    {currentUserRole === 'admin' ? 'Customer' : currentUserRole === 'customer' ? 'Mechanic' : 'Customer'}
+                                </p>
+                                <span className="text-white/20 text-[9px]">•</span>
+                                {(() => {
+                                    const presence = getPresenceStatus(recipientLastActiveAt);
+                                    return presence.isOnline ? (
+                                        <div className="flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400">
+                                                Active Now
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
+                                            <span className="text-[9px] font-bold tracking-wider text-muted-foreground/70">
+                                                {presence.label}
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
                         </div>
                     </div>
                     

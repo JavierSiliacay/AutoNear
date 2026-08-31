@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { createClient } from '@/lib/supabase/client';
 import type { ChatMessage } from '@/lib/types';
 import { useSession } from 'next-auth/react';
-import { savePushSubscription } from '@/lib/actions';
+import { savePushSubscription, updateUserPresence } from '@/lib/actions';
 
 interface NotificationContextType {
     unreadCounts: Record<string, number>;
@@ -146,10 +146,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                             });
 
                             // Trigger Phone Notification Card & Audio Chime
+                            const custName = newReq.customer_name || 'A customer';
+                            const vehicle = newReq.vehicle_info ? ` (${newReq.vehicle_info})` : '';
+                            const svc = newReq.service_type || 'Automotive Service';
                             triggerSystemNotification(
-                                '🚗 New Service Request!',
-                                `${newReq.customer_name || 'A customer'} booked an appointment.`,
-                                '/profile'
+                                `🚗 New Booking from ${custName}`,
+                                `${svc}${vehicle} • Tap to view request and chat.`,
+                                `/profile?request_id=${newReq.id}&chat=true`
                             );
                         } else if (newReq.customer_email === userEmailRef.current) {
                             myRequestIdsRef.current.add(newReq.id);
@@ -222,7 +225,74 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                         }
                     }
                 )
-                .subscribe();
+                // 4. Listen for Admin Direct Warnings / Reminders
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'admin_mechanic_notices'
+                    },
+                    (payload) => {
+                        const newNotice = payload.new as any;
+                        if (newNotice && userEmailRef.current && newNotice.mechanic_email?.toLowerCase().trim() === userEmailRef.current.toLowerCase().trim()) {
+                            triggerSystemNotification(
+                                newNotice.title || '⚠️ Official Admin Notice',
+                                newNotice.message || 'You have received an important message from administrators.',
+                                '/profile'
+                            );
+                        }
+                    }
+                );
+
+            // 5. If Current User is an Administrator, listen for platform-wide alerts
+            const ADMIN_EMAILS = [
+                "siliacay.javier@gmail.com",
+                "kacaballes03539@liceo.edu.ph",
+                "glloydn.22@gmail.com",
+                "javiersiliacay12@gmail.com"
+            ];
+            const isAdmin = ADMIN_EMAILS.some(e => e.toLowerCase() === email.toLowerCase().trim());
+
+            if (isAdmin) {
+                globalChannel
+                    // 5a. Admin Alert: New Mechanic Application
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'INSERT',
+                            schema: 'public',
+                            table: 'mechanic_registrations'
+                        },
+                        (payload: any) => {
+                            const newReg = payload.new as any;
+                            triggerSystemNotification(
+                                `🚨 New Mechanic Application: ${newReg.name || 'New Applicant'}`,
+                                `${newReg.name || 'Applicant'} (${newReg.city || 'Philippines'}) has submitted credentials for verification.`,
+                                '/admin'
+                            );
+                        }
+                    )
+                    // 5b. Admin Alert: New Customer Complaint / Dispute
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'INSERT',
+                            schema: 'public',
+                            table: 'customer_reports'
+                        },
+                        (payload: any) => {
+                            const newReport = payload.new as any;
+                            triggerSystemNotification(
+                                `⚠️ New Customer Complaint Received`,
+                                `Report filed by ${newReport.customer_name || 'Car Owner'}: "${newReport.reason || 'Service Issue'}". Tap to review.`,
+                                '/admin'
+                            );
+                        }
+                    );
+            }
+
+            globalChannel.subscribe();
         };
 
         const init = async () => {
@@ -235,6 +305,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             if (activeEmail) {
                 userEmailRef.current = activeEmail;
                 setUserEmail(activeEmail);
+                updateUserPresence(activeEmail);
 
                 // Restore persistent unread counts for active user
                 try {
@@ -337,14 +408,34 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 userEmailRef.current = email;
                 setUserEmail(email);
                 setupSubscription(email);
+                updateUserPresence(email);
             }
         });
+
+        // Live Presence Heartbeat Engine (Facebook-style 2-minute active ping)
+        const sendPresenceHeartbeat = () => {
+            if (typeof window !== 'undefined' && navigator.onLine && userEmailRef.current) {
+                updateUserPresence(userEmailRef.current);
+            }
+        };
+
+        sendPresenceHeartbeat();
+        const heartbeatInterval = setInterval(sendPresenceHeartbeat, 120000);
+
+        const handleFocus = () => sendPresenceHeartbeat();
+        const handleOnline = () => sendPresenceHeartbeat();
+
+        window.addEventListener('focus', handleFocus);
+        window.addEventListener('online', handleOnline);
 
         init();
 
         return () => {
             subscription.unsubscribe();
             if (globalChannel) supabase.removeChannel(globalChannel);
+            clearInterval(heartbeatInterval);
+            window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('online', handleOnline);
         };
     }, [supabase, nextAuthSession?.user?.email]);
 

@@ -8,9 +8,11 @@ import 'leaflet/dist/leaflet.css'
 import { MaterialIcon } from "@/components/material-icon"
 import type { Shop, Mechanic } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
+import { getPresenceStatus } from "@/lib/presence"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
+import { PhotoLightboxModal } from "@/components/photo-lightbox-modal"
 
 interface MapViewProps {
   mechanics: Mechanic[]
@@ -61,6 +63,7 @@ export function MapView({ mechanics }: MapViewProps) {
   const { data: nextAuthSession } = useSession()
   // Define icons inside the component to avoid SSR errors
   const [selectedMechanic, setSelectedMechanic] = useState<Mechanic | null>(null)
+  const [isPhotoLightboxOpen, setIsPhotoLightboxOpen] = useState(false)
   const [localMechanics, setLocalMechanics] = useState<Mechanic[]>(mechanics)
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number, address?: string } | null>(null)
   const [isLocating, setIsLocating] = useState(false)
@@ -250,9 +253,10 @@ export function MapView({ mechanics }: MapViewProps) {
           {/* Mechanic Markers */}
           {mechanicsWithCoords.map((mechanic) => {
             const isSelected = selectedMechanic?.id === mechanic.id;
+            const isOnline = (mechanic.last_active_at && (Date.now() - new Date(mechanic.last_active_at).getTime()) < 180000);
             return (
               <Marker
-                key={`${mechanic.id}-${mechanic.is_available}`}
+                key={`${mechanic.id}-${isOnline ? 'online' : 'offline'}-${isSelected}`}
                 position={[mechanic.latitude!, mechanic.longitude!]}
                 icon={L.divIcon({
                   className: 'custom-div-icon',
@@ -264,7 +268,7 @@ export function MapView({ mechanics }: MapViewProps) {
                             <span class="material-symbols-outlined ${isSelected ? 'text-2xl' : 'text-xl'} text-gray-400 font-bold">person</span>
                            </div>`
                       }
-                      <div class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${mechanic.is_available ? 'bg-green-500' : 'bg-red-500'}"></div>
+                      <div class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}"></div>
                     </div>`,
                   iconSize: isSelected ? [40, 40] : [32, 32],
                   iconAnchor: isSelected ? [20, 40] : [16, 32]
@@ -350,8 +354,18 @@ export function MapView({ mechanics }: MapViewProps) {
               <div className="flex flex-col gap-4">
                 <div className="flex items-start justify-between gap-4">
                   {selectedMechanic.image_url && (
-                    <div className="w-14 h-14 rounded-xl overflow-hidden border border-turbo-orange/30 shrink-0">
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsPhotoLightboxOpen(true)
+                      }}
+                      className="w-14 h-14 rounded-xl overflow-hidden border border-turbo-orange/30 shrink-0 cursor-pointer hover:scale-105 transition-transform relative group"
+                      title="Click to view & zoom photo"
+                    >
                       <img src={selectedMechanic.image_url} alt={selectedMechanic.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <MaterialIcon name="zoom_in" className="text-white text-base" />
+                      </div>
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
@@ -372,13 +386,19 @@ export function MapView({ mechanics }: MapViewProps) {
                         {Number(selectedMechanic.rating).toFixed(1)}
                       </span>
                     </div>
-                    <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${
-                      selectedMechanic.is_available 
-                        ? 'bg-green-500/10 text-green-500 border-green-500/20' 
-                        : 'bg-red-500/10 text-red-500 border-red-500/20'
-                    }`}>
-                      {selectedMechanic.is_available ? 'Available' : 'Unavailable'}
-                    </div>
+                    {(() => {
+                      const presence = getPresenceStatus(selectedMechanic.last_active_at);
+                      return (
+                        <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${
+                          presence.isOnline 
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                            : 'bg-red-500/10 text-red-400 border-red-500/20'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${presence.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+                          {presence.label}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -440,6 +460,20 @@ export function MapView({ mechanics }: MapViewProps) {
           OpenStreetMap &middot; CartoDB
         </div>
       </div>
+      {/* Interactive Expandable Photo Lightbox with Zoom */}
+      {selectedMechanic && selectedMechanic.image_url && (
+        <PhotoLightboxModal
+          isOpen={isPhotoLightboxOpen}
+          onClose={() => setIsPhotoLightboxOpen(false)}
+          imageUrl={selectedMechanic.image_url}
+          title={selectedMechanic.name}
+          subtitle={[selectedMechanic.city, selectedMechanic.specializations?.[0]].filter(Boolean).join(" • ")}
+          presence={getPresenceStatus(selectedMechanic.last_active_at)}
+          actionLabel="View Full Profile"
+          actionIcon="person"
+          onAction={() => router.push(`/mechanics/${selectedMechanic.id}`)}
+        />
+      )}
     </main>
   )
 }

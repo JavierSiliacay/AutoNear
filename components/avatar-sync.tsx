@@ -3,8 +3,17 @@
 import { useEffect } from "react"
 import { syncCurrentUserAvatar } from "@/lib/actions"
 import { createClient } from "@/lib/supabase/client"
+import { useSession } from "next-auth/react"
 
 export function AvatarSync() {
+  const { data: nextAuthSession } = useSession()
+
+  useEffect(() => {
+    if (nextAuthSession?.user) {
+      syncCurrentUserAvatar().catch(() => {})
+    }
+  }, [nextAuthSession])
+
   useEffect(() => {
     const supabase = createClient()
     

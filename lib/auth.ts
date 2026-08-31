@@ -24,26 +24,28 @@ export const authOptions: NextAuthOptions = {
         const avatarUrl = user.image || null
 
         // Sync or ensure user profile exists in Supabase
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("id, email")
+        const { data: existingUser, error: selectError } = await supabase
+          .from("user_profiles")
+          .select("email")
           .eq("email", userEmail)
-          .single()
+          .maybeSingle()
 
-        if (!existingUser) {
-          await supabase.from("users").insert([
-            {
-              email: userEmail,
-              full_name: userName,
-              avatar_url: avatarUrl,
-              created_at: new Date().toISOString(),
-            },
-          ])
-        } else if (avatarUrl) {
-          await supabase
-            .from("users")
-            .update({ avatar_url: avatarUrl, full_name: userName })
-            .eq("email", userEmail)
+        if (!selectError) {
+          if (!existingUser) {
+            await supabase.from("user_profiles").insert([
+              {
+                email: userEmail,
+                full_name: userName,
+                avatar_url: avatarUrl,
+                created_at: new Date().toISOString(),
+              },
+            ])
+          } else if (avatarUrl) {
+            await supabase
+              .from("user_profiles")
+              .update({ avatar_url: avatarUrl, full_name: userName })
+              .eq("email", userEmail)
+          }
         }
       } catch (err) {
         console.error("NextAuth Supabase Sync Error:", err)

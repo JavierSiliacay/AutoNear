@@ -38,6 +38,7 @@ export interface Mechanic {
   service_preference: ('Home Service' | 'On Shop')[]
   available_days: string[]
   created_at: string
+  last_active_at?: string | null
   distance?: number
 }
 
@@ -135,6 +136,7 @@ export interface ServiceRequest {
   quote_status?: 'pending' | 'accepted' | 'rejected' | null
   quote_updated_at?: string | null
   is_reviewed?: boolean
+  cancellation_reason?: string | null
 }
 
 export interface Review {

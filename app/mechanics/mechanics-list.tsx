@@ -9,6 +9,7 @@ import { SERVICE_TYPES } from "@/lib/types"
 import type { Mechanic } from "@/lib/types"
 import { useMechanics } from "@/hooks/use-mechanics"
 import { calculateHaversineDistance, fetchRoadRoute, type RouteResult } from "@/lib/routing"
+import { getPresenceStatus } from "@/lib/presence"
 import { toast } from "sonner"
 
 // Dynamically import Leaflet Map to avoid SSR issues
@@ -49,6 +50,7 @@ export function MechanicsList({ city, lat: initialLat, lng: initialLng, service:
   const [searchRadius, setSearchRadius] = useState<number | null>(10) // default 10km
   const [showCustomRadius, setShowCustomRadius] = useState(false)
   const [customRadiusValue, setCustomRadiusValue] = useState<number>(15)
+  const [presenceFilter, setPresenceFilter] = useState<"all" | "online" | "offline">("all")
   const [selectedMechanic, setSelectedMechanic] = useState<Mechanic | null>(null)
   const [isLocating, setIsLocating] = useState(false)
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null)
@@ -69,6 +71,12 @@ export function MechanicsList({ city, lat: initialLat, lng: initialLng, service:
     city,
     service: activeService,
   })
+
+  // Calculate live presence counts
+  const onlineCount = useMemo(() => {
+    return mechanics.filter(m => m.last_active_at && (Date.now() - new Date(m.last_active_at).getTime()) < 180000).length
+  }, [mechanics])
+  const offlineCount = Math.max(0, mechanics.length - onlineCount)
 
   // "Nearby Mechanics" One-Tap Geolocation Handler
   const handleLocateNearby = () => {
@@ -184,7 +192,16 @@ export function MechanicsList({ city, lat: initialLat, lng: initialLng, service:
           matchesRadius = dist <= searchRadius
         }
 
-        return matchesSearch && matchesService && matchesRadius
+        // Live Presence Filter (All / Online / Offline)
+        const isOnline = m.last_active_at && (Date.now() - new Date(m.last_active_at).getTime()) < 180000
+        let matchesPresence = true
+        if (presenceFilter === "online") {
+          matchesPresence = Boolean(isOnline)
+        } else if (presenceFilter === "offline") {
+          matchesPresence = !isOnline
+        }
+
+        return matchesSearch && matchesService && matchesRadius && matchesPresence
       })
       .map((m) => {
         // Attach calculated distance for easy display
@@ -208,7 +225,7 @@ export function MechanicsList({ city, lat: initialLat, lng: initialLng, service:
         if (!a.is_available && b.is_available) return 1
         return (Number(b.rating) || 0) - (Number(a.rating) || 0)
       })
-  }, [mechanics, search, activeService, userLocation, searchRadius])
+  }, [mechanics, search, activeService, userLocation, searchRadius, presenceFilter])
 
   return (
     <div className="space-y-6">
@@ -255,7 +272,7 @@ export function MechanicsList({ city, lat: initialLat, lng: initialLng, service:
         </div>
 
         {/* Filters & Mode Toggles Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 py-1">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-1">
           {/* Radius Selector */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
             <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1 shrink-0">
@@ -293,30 +310,68 @@ export function MechanicsList({ city, lat: initialLat, lng: initialLng, service:
             </button>
           </div>
 
-          {/* Mobile View Switcher (Map vs Grid) */}
-          <div className="flex lg:hidden items-center bg-white/5 border border-white/10 p-1 rounded-xl">
-            <button
-              onClick={() => setViewMode("map")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
-                viewMode === "map"
-                  ? "bg-turbo-orange text-midnight shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <MaterialIcon name="map" className="text-sm" />
-              <span>Map</span>
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
-                viewMode === "list"
-                  ? "bg-turbo-orange text-midnight shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <MaterialIcon name="grid_view" className="text-sm" />
-              <span>List ({filtered.length})</span>
-            </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Live Presence Status Filter Pills */}
+            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 shadow-lg">
+              <button
+                onClick={() => setPresenceFilter("all")}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                  presenceFilter === "all"
+                    ? "bg-white/20 text-white shadow-md"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                All ({mechanics.length})
+              </button>
+              <button
+                onClick={() => setPresenceFilter("online")}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                  presenceFilter === "online"
+                    ? "bg-emerald-500 text-midnight shadow-md shadow-emerald-500/20 font-black"
+                    : "text-emerald-400/90 hover:text-emerald-300"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${presenceFilter === "online" ? "bg-midnight animate-pulse" : "bg-emerald-400 animate-pulse"}`} />
+                <span>Online ({onlineCount})</span>
+              </button>
+              <button
+                onClick={() => setPresenceFilter("offline")}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                  presenceFilter === "offline"
+                    ? "bg-red-500 text-white shadow-md shadow-red-500/20 font-black"
+                    : "text-red-400/80 hover:text-red-300"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${presenceFilter === "offline" ? "bg-white" : "bg-red-500"}`} />
+                <span>Offline ({offlineCount})</span>
+              </button>
+            </div>
+
+            {/* Mobile View Switcher (Map vs Grid) */}
+            <div className="flex lg:hidden items-center bg-white/5 border border-white/10 p-1 rounded-xl">
+              <button
+                onClick={() => setViewMode("map")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                  viewMode === "map"
+                    ? "bg-turbo-orange text-midnight shadow-md"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <MaterialIcon name="map" className="text-sm" />
+                <span>Map</span>
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                  viewMode === "list"
+                    ? "bg-turbo-orange text-midnight shadow-md"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <MaterialIcon name="grid_view" className="text-sm" />
+                <span>List ({filtered.length})</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -500,9 +555,19 @@ export function MechanicsList({ city, lat: initialLat, lng: initialLng, service:
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-turbo-orange/15 text-turbo-orange text-[9px] font-black uppercase px-2 py-0.5 rounded-full border border-turbo-orange/20">
-                        {selectedMechanic.is_available ? "Available Now" : "Offline"}
-                      </span>
+                      {(() => {
+                        const presence = getPresenceStatus(selectedMechanic.last_active_at);
+                        return (
+                          <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${
+                            presence.isOnline 
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" 
+                              : "bg-red-500/10 text-red-400 border-red-500/20"
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${presence.isOnline ? "bg-emerald-400 animate-pulse" : "bg-red-500"}`} />
+                            {presence.label}
+                          </span>
+                        );
+                      })()}
                       <span className="text-muted-foreground text-[10px] font-bold flex items-center gap-0.5">
                         <MaterialIcon name="star" className="text-xs text-turbo-orange" filled />
                         {Number(selectedMechanic.rating).toFixed(1)}

@@ -29,6 +29,8 @@ export function useMechanics(options?: MechanicsFilterOptions, initialData?: Mec
     queryKey: ["mechanics", options?.city || "all", options?.service || "all"],
     queryFn: () => fetchMechanicsApi(options),
     initialData: initialData,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 10 * 1000, // 10 seconds
+    refetchInterval: 30 * 1000, // Poll every 30 seconds for live presence updates
+    refetchOnWindowFocus: true,
   })
 }

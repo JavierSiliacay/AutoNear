@@ -219,8 +219,8 @@ export async function submitServiceRequest(formData: FormData) {
   const message = formData.get("message") as string
   const scheduledDate = formData.get("scheduled_date") as string
 
-  if (!mechanicId || !customerName || !customerPhone || !vehicleInfo || !servicePreference) {
-    return { success: false, error: "Please fill in all required fields including Vehicle Info." }
+  if (!mechanicId || !customerName || !customerPhone || !vehicleInfo || !servicePreference || !serviceType) {
+    return { success: false, error: "Please fill in all required fields including Service Needed." }
   }
 
   const user = await getAuthenticatedUser()
@@ -421,7 +421,7 @@ export async function getServiceRequests() {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("service_requests")
-    .select("*, mechanics(name, image_url)")
+    .select("*, mechanics(name, image_url, last_active_at, email)")
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -432,7 +432,9 @@ export async function getServiceRequests() {
   return data.map((req: any) => ({
     ...req,
     mechanic_name: req.mechanics?.name || "Unknown Mechanic",
-    mechanic_image_url: req.mechanics?.image_url || null
+    mechanic_image_url: req.mechanics?.image_url || null,
+    mechanic_last_active_at: req.mechanics?.last_active_at || null,
+    mechanic_email: req.mechanics?.email || null,
   }))
 }
 
@@ -440,7 +442,7 @@ export async function getUsersServiceRequests(email: string) {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("service_requests")
-    .select("*, mechanics(name, image_url)")
+    .select("*, mechanics(name, image_url, last_active_at, email)")
     .eq("customer_email", email)
     .order("created_at", { ascending: false })
 
@@ -452,7 +454,9 @@ export async function getUsersServiceRequests(email: string) {
   return data.map((req: any) => ({
     ...req,
     mechanic_name: req.mechanics?.name || "Unknown Mechanic",
-    mechanic_image_url: req.mechanics?.image_url || null
+    mechanic_image_url: req.mechanics?.image_url || null,
+    mechanic_last_active_at: req.mechanics?.last_active_at || null,
+    mechanic_email: req.mechanics?.email || null,
   }))
 }
 
@@ -460,7 +464,7 @@ export async function getMechanicServiceRequests(mechanicId: string) {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("service_requests")
-    .select("*, mechanics(name, image_url)")
+    .select("*, mechanics(name, image_url, last_active_at, email)")
     .eq("mechanic_id", mechanicId)
     .order("created_at", { ascending: false })
 
@@ -469,10 +473,29 @@ export async function getMechanicServiceRequests(mechanicId: string) {
     return []
   }
 
+  const customerEmails = Array.from(new Set((data || []).map((r: any) => r.customer_email?.toLowerCase()).filter(Boolean)))
+  const profileMap: Record<string, string | null> = {}
+  if (customerEmails.length > 0) {
+    try {
+      const { data: profiles } = await supabase
+        .from("user_profiles")
+        .select("email, last_active_at")
+        .in("email", customerEmails)
+      if (profiles) {
+        profiles.forEach((p: any) => {
+          if (p.email) profileMap[p.email.toLowerCase()] = p.last_active_at
+        })
+      }
+    } catch {}
+  }
+
   return data.map((req: any) => ({
     ...req,
     mechanic_name: req.mechanics?.name || "Unknown Mechanic",
-    mechanic_image_url: req.mechanics?.image_url || null
+    mechanic_image_url: req.mechanics?.image_url || null,
+    mechanic_last_active_at: req.mechanics?.last_active_at || null,
+    mechanic_email: req.mechanics?.email || null,
+    customer_last_active_at: profileMap[req.customer_email?.toLowerCase()] || null,
   }))
 }
 
@@ -923,9 +946,87 @@ export async function deleteServiceRequest(requestId: string) {
   return { success: true }
 }
 
+export async function declineServiceRequest(requestId: string, reason?: string) {
+  const supabase = await createClient()
+  const user = await getAuthenticatedUser()
+  if (!user) return { success: false, error: "Unauthorized" }
+
+  const cleanReason = reason?.trim() || "Mechanic is currently unavailable."
+
+  const updatePayload: Record<string, any> = {
+    status: "cancelled",
+    status_updated_at: new Date().toISOString(),
+    cancellation_reason: cleanReason
+  }
+
+  let { error } = await supabase
+    .from("service_requests")
+    .update(updatePayload)
+    .eq("id", requestId)
+
+  if (error) {
+    // Fallback if column doesn't exist yet
+    const { error: fallbackError } = await supabase
+      .from("service_requests")
+      .update({
+        status: "cancelled",
+        status_updated_at: new Date().toISOString()
+      })
+      .eq("id", requestId)
+
+    if (fallbackError) {
+      console.error("Error declining service request:", fallbackError)
+      return { success: false, error: "Failed to decline request." }
+    }
+  }
+
+  // Push notification dispatch to customer
+  try {
+    const { data: request } = await supabase
+      .from("service_requests")
+      .select("customer_email, customer_name, mechanics(name)")
+      .eq("id", requestId)
+      .maybeSingle()
+
+    if (request?.customer_email) {
+      const cleanEmail = request.customer_email.toLowerCase().trim()
+      const { data: subs } = await supabase
+        .from("push_subscriptions")
+        .select("subscription")
+        .ilike("user_email", cleanEmail)
+
+      if (subs && subs.length > 0 && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+        webpush.setVapidDetails(
+          process.env.VAPID_SUBJECT || 'mailto:admin@tarafix.com',
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+          process.env.VAPID_PRIVATE_KEY
+        )
+
+        const mechName = (request.mechanics as any)?.name || "The mechanic"
+        const payload = JSON.stringify({
+          title: `❌ Booking Update`,
+          body: `${mechName} declined: "${cleanReason}". Tap to find another available mechanic.`,
+          url: `/mechanics`
+        })
+
+        await Promise.allSettled(
+          subs.map(s => webpush.sendNotification(s.subscription, payload))
+        )
+      }
+    }
+  } catch (err) {
+    console.warn("Push error on decline:", err)
+  }
+
+  revalidatePath('/profile')
+  revalidatePath('/map')
+  revalidatePath('/')
+  return { success: true }
+}
+
 export async function updateServiceRequestStatus(requestId: string, status: ServiceRequest['status']) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
   
   // Get current status for logging
   const { data: currentReq } = await supabase.from("service_requests").select("status").eq("id", requestId).single()
@@ -1058,9 +1159,82 @@ export async function updateMechanicProfile(email: string, data: Partial<Mechani
   return { success: true }
 }
 
+export async function getUserProfile(email: string) {
+  const supabase = await createClient()
+  const cleanEmail = email.toLowerCase().trim()
+  try {
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("email", cleanEmail)
+      .maybeSingle()
+
+    if (error) {
+      if (error.code !== 'PGRST205' && error.code !== '42P01') {
+        console.warn("Could not fetch user_profiles from database:", error.message)
+      }
+      return null
+    }
+    return data
+  } catch {
+    return null
+  }
+}
+
+export async function updateUserProfile(
+  email: string, 
+  updates: { 
+    full_name?: string; 
+    phone?: string; 
+    vehicle_info?: string;
+    city?: string;
+    barangay?: string;
+    latitude?: number;
+    longitude?: number;
+  }
+) {
+  const supabase = await createClient()
+  const user = await getAuthenticatedUser()
+  if (!user || user.email?.toLowerCase().trim() !== email.toLowerCase().trim()) {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  const cleanEmail = email.toLowerCase().trim()
+
+  const payload: Record<string, any> = {
+    email: cleanEmail,
+    updated_at: new Date().toISOString()
+  }
+  if (updates.full_name !== undefined) payload.full_name = updates.full_name
+  if (updates.phone !== undefined) payload.phone = updates.phone
+  if (updates.vehicle_info !== undefined) payload.vehicle_info = updates.vehicle_info
+  if (updates.city !== undefined) payload.city = updates.city
+  if (updates.barangay !== undefined) payload.barangay = updates.barangay
+  if (updates.latitude !== undefined) payload.latitude = updates.latitude
+  if (updates.longitude !== undefined) payload.longitude = updates.longitude
+
+  try {
+    const { error } = await supabase
+      .from("user_profiles")
+      .upsert(payload, { onConflict: 'email' })
+
+    if (error) {
+      if (error.code !== 'PGRST205' && error.code !== '42P01') {
+        console.warn("Notice: user_profiles table update:", error.message)
+      }
+    }
+  } catch (err) {
+    console.warn("user_profiles save fallback:", err)
+  }
+
+  revalidatePath('/profile')
+  revalidatePath('/')
+  return { success: true }
+}
+
 export async function revokeMechanicAccess(mechanicId: string, reason?: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
   const ALLOWED_ADMINS = [
     "siliacay.javier@gmail.com",
@@ -1441,6 +1615,38 @@ export async function sendAdminMechanicNotice(payload: {
     return { success: false, error: "Failed to send notice: " + (error.message || "Unknown error") }
   }
 
+  // Dispatch real-time Web Push notification to user's device
+  try {
+    const cleanRecipientEmail = payload.mechanicEmail.toLowerCase().trim()
+    const { data: subs } = await supabase
+      .from("push_subscriptions")
+      .select("subscription")
+      .ilike("user_email", cleanRecipientEmail)
+
+    if (subs && subs.length > 0 && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+      webpush.setVapidDetails(
+        process.env.VAPID_SUBJECT || 'mailto:admin@tarafix.com',
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+      )
+
+      const pushTitle = payload.title?.trim() || "⚠️ Official Admin Notice"
+      const pushPayload = JSON.stringify({
+        title: pushTitle,
+        body: payload.message.trim().length > 70 ? payload.message.trim().substring(0, 70) + '...' : payload.message.trim(),
+        url: `/profile`
+      })
+
+      await Promise.allSettled(
+        subs.map(s => webpush.sendNotification(s.subscription as any, pushPayload).catch(() => {}))
+      )
+    }
+  } catch (pushErr) {
+    console.error("Non-critical push error on notice dispatch:", pushErr)
+  }
+
+  revalidatePath('/profile')
+  revalidatePath('/')
   return { success: true }
 }
 
@@ -1605,4 +1811,136 @@ export async function updateCustomerReportStatus(reportId: string, status: 'pend
 
   revalidatePath('/admin')
   return { success: true }
+}
+
+export async function updateUserPresence(email: string) {
+  if (!email || !email.trim()) return { success: false }
+  const cleanEmail = email.toLowerCase().trim()
+  const supabase = await createClient()
+
+  try {
+    // 1. Try calling the SECURITY DEFINER RPC function (bypasses RLS smoothly)
+    const { error: rpcErr } = await supabase.rpc('update_user_presence', { p_email: cleanEmail })
+
+    if (rpcErr) {
+      const nowIso = new Date().toISOString()
+      // 2. Direct fallback updates
+      await supabase
+        .from('user_profiles')
+        .update({ last_active_at: nowIso, updated_at: nowIso })
+        .ilike('email', cleanEmail)
+
+      await supabase
+        .from('mechanics')
+        .update({ last_active_at: nowIso })
+        .ilike('email', cleanEmail)
+    }
+
+    // Invalidate cached mechanics list so UI immediately reflects the new presence
+    try {
+      await invalidateCache("mechanics:all:all")
+    } catch {}
+
+    return { success: true }
+  } catch (err) {
+    console.error("Non-critical error updating user presence:", err)
+    return { success: false }
+  }
+}
+
+export async function getUserPresence(email: string): Promise<{ last_active_at: string | null }> {
+  if (!email || !email.trim()) return { last_active_at: null }
+  const cleanEmail = email.toLowerCase().trim()
+  const supabase = await createClient()
+
+  try {
+    // Check mechanic presence first
+    const { data: mech } = await supabase
+      .from('mechanics')
+      .select('last_active_at')
+      .ilike('email', cleanEmail)
+      .maybeSingle()
+
+    if (mech?.last_active_at) {
+      return { last_active_at: mech.last_active_at }
+    }
+
+    // Fallback to user_profiles
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('last_active_at')
+      .ilike('email', cleanEmail)
+      .maybeSingle()
+
+    return { last_active_at: profile?.last_active_at || null }
+  } catch (err) {
+    return { last_active_at: null }
+  }
+}
+
+export async function uploadProfileAvatar(formData: FormData): Promise<{ success: boolean; avatar_url?: string; error?: string }> {
+  try {
+    const email = formData.get("email") as string
+    const file = formData.get("file") as File
+
+    if (!email || !email.trim()) {
+      return { success: false, error: "User email is required." }
+    }
+    if (!file) {
+      return { success: false, error: "No image file provided." }
+    }
+
+    const cleanEmail = email.toLowerCase().trim()
+    const supabase = await createClient()
+
+    // File path: avatars/{sanitizedEmail}/avatar_{timestamp}.webp
+    const path = `${cleanEmail.replace(/[^a-z0-9]/g, '_')}/avatar_${Date.now()}.webp`
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, file, {
+        contentType: 'image/webp',
+        upsert: true,
+        cacheControl: '31536000'
+      })
+
+    if (uploadError) {
+      console.error("Error uploading avatar to storage:", uploadError)
+      return { success: false, error: "Failed to upload avatar to storage." }
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(path)
+
+    // Update user_profiles
+    await supabase
+      .from('user_profiles')
+      .upsert({
+        email: cleanEmail,
+        avatar_url: publicUrl,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'email' })
+
+    // Update mechanics table if user is a mechanic
+    await supabase
+      .from('mechanics')
+      .update({ image_url: publicUrl })
+      .ilike('email', cleanEmail)
+
+    // Invalidate caches & paths
+    try {
+      await invalidateCache("mechanics:all:all")
+      revalidatePath('/mechanics')
+      revalidatePath('/map')
+      revalidatePath('/profile')
+      revalidatePath('/')
+    } catch {}
+
+    return { success: true, avatar_url: publicUrl }
+  } catch (err: any) {
+    console.error("Error in uploadProfileAvatar:", err)
+    return { success: false, error: err.message || "Failed to process avatar upload." }
+  }
 }

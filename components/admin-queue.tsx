@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { MaterialIcon } from '@/components/material-icon';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import { 
     getShopRequests, 
     getMechanicRequests, 
@@ -39,10 +41,52 @@ export function AdminQueue({ adminEmail }: { adminEmail: string }) {
 
     useEffect(() => {
         loadData();
+
+        const supabase = createClient();
+        const channel = supabase
+            .channel('admin-dashboard-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'mechanic_registrations' },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        const newReg = payload.new as any;
+                        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                        audio.play().catch(() => {});
+                        toast.info(`🚨 New Mechanic Application: ${newReg?.name || 'Applicant'}`);
+                    }
+                    loadData(false);
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'customer_reports' },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        const newReport = payload.new as any;
+                        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                        audio.play().catch(() => {});
+                        toast.error(`⚠️ New Complaint: "${newReport?.reason || 'Issue reported'}"`);
+                    }
+                    loadData(false);
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'mechanics' },
+                () => {
+                    loadData(false);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
-    async function loadData() {
-        setIsLoading(true);
+    async function loadData(showLoading = true) {
+        if (showLoading) setIsLoading(true);
         const [requests, mechanics, reports, banned] = await Promise.all([
             getMechanicRequests(),
             getMechanics(),
@@ -53,7 +97,7 @@ export function AdminQueue({ adminEmail }: { adminEmail: string }) {
         setAllMechanics(mechanics);
         setCustomerReports(reports);
         setBannedUsers(banned);
-        setIsLoading(false);
+        if (showLoading) setIsLoading(false);
     }
 
     async function handleMechanicAction(requestId: string, status: 'approved' | 'rejected') {
@@ -327,7 +371,7 @@ export function AdminQueue({ adminEmail }: { adminEmail: string }) {
                             </p>
                         </div>
                         <button
-                            onClick={loadData}
+                            onClick={() => loadData(true)}
                             className="px-4 py-2 glass rounded-xl text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-white flex items-center gap-1.5 cursor-pointer"
                         >
                             <MaterialIcon name="refresh" className="text-sm" />

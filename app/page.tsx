@@ -12,9 +12,9 @@ const MapView = dynamic(() => import("./map/map-view").then((mod) => mod.MapView
   loading: () => <div className="w-full h-full bg-slate-900 animate-pulse" />
 })
 
-import { JoinNetworkForm } from "@/components/join-network-form"
 import { getMechanics } from "@/lib/actions"
 import type { Mechanic } from "@/lib/types"
+import { getPresenceStatus } from "@/lib/presence"
 import { useEffect, useState } from "react"
 
 const serviceCategories = [
@@ -80,8 +80,13 @@ export default function HomePage() {
             dbMechanic = await getMechanicByEmail(user.email)
             if (dbMechanic) {
               setMechanicProfile(dbMechanic)
-              setUserRole("mechanic")
-              localStorage.setItem("tarafix_user_role", "mechanic")
+              const savedRole = localStorage.getItem("tarafix_user_role")
+              if (savedRole === "car_owner" || savedRole === "mechanic") {
+                setUserRole(savedRole)
+              } else {
+                setUserRole("mechanic")
+                localStorage.setItem("tarafix_user_role", "mechanic")
+              }
             } else {
               // 1. Check if their mechanic access was recently revoked
               const check = await checkIfAlreadyMechanic(user.email)
@@ -117,11 +122,21 @@ export default function HomePage() {
             }
           }
 
-          // If NOT in mechanic database, check localStorage or default to car_owner
+          // If NOT in approved mechanic database, check pending status or localStorage
           if (!dbMechanic) {
             setMechanicProfile(null)
             const savedRole = localStorage.getItem("tarafix_user_role")
-            const resolvedRole = (savedRole === "car_owner" || !savedRole || savedRole === "mechanic") ? "car_owner" : savedRole
+            let resolvedRole = savedRole || "car_owner"
+
+            if (user.email) {
+              const check = await checkIfAlreadyMechanic(user.email)
+              if (check.registered && check.status === 'pending') {
+                resolvedRole = "mechanic"
+              } else if (savedRole === "mechanic" && !check.registered) {
+                resolvedRole = "car_owner"
+              }
+            }
+
             setUserRole(resolvedRole)
             localStorage.setItem("tarafix_user_role", resolvedRole)
           }
@@ -146,14 +161,22 @@ export default function HomePage() {
     }
     loadData()
 
-    const handleRoleUpdate = () => {
+    const handleRoleUpdate = async () => {
       const updatedRole = localStorage.getItem("tarafix_user_role")
       setUserRole(updatedRole)
+      if (currentUser?.email) {
+        try {
+          const notices = await getMechanicUnreadNotices(currentUser.email)
+          if (notices && notices.length > 0) {
+            setActiveAdminNotice(notices[0])
+          }
+        } catch {}
+      }
     }
 
     window.addEventListener("tarafix_role_changed", handleRoleUpdate)
     return () => window.removeEventListener("tarafix_role_changed", handleRoleUpdate)
-  }, [nextAuthSession])
+  }, [nextAuthSession, currentUser?.email])
 
   const ADMIN_EMAILS = [
     "siliacay.javier@gmail.com",
@@ -164,7 +187,8 @@ export default function HomePage() {
 
   const userEmail = currentUser?.email?.toLowerCase().trim() || ""
   const isAdmin = ADMIN_EMAILS.some(e => e.toLowerCase() === userEmail) || userRole === "admin"
-  const isMechanic = !!mechanicProfile || userRole === "mechanic"
+  const isMechanic = userRole === "mechanic"
+  const isCarOwner = userRole === "car_owner"
 
   const displayName = currentUser?.user_metadata?.full_name || 
                       currentUser?.user_metadata?.name || 
@@ -174,8 +198,6 @@ export default function HomePage() {
   const avatarUrl = currentUser?.user_metadata?.avatar_url || 
                     currentUser?.user_metadata?.picture || 
                     null
-
-  const isCarOwner = userRole === "car_owner"
 
   return (
     <div className="min-h-screen pb-32 overflow-x-hidden">
@@ -213,7 +235,7 @@ export default function HomePage() {
                       Good Day, {displayName.split(' ')[0]}!
                     </span>
                     <span className={`text-[8px] font-extrabold uppercase tracking-widest leading-tight ${isMechanic ? "text-turbo-orange" : "text-electric-blue"}`}>
-                      {isMechanic ? "Mechanic" : isCarOwner ? "Car Owner" : "Customer"}
+                      {isMechanic ? "Mechanic" : "Car Owner"}
                     </span>
                   </div>
                   {avatarUrl ? (
@@ -395,10 +417,15 @@ export default function HomePage() {
                   </div>
                   <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider pt-3 border-t border-white/5">
                     <span className="text-muted-foreground text-[10px]">{pro.city || "Available Nearby"}</span>
-                    <span className="text-emerald-400 flex items-center gap-1.5 text-[10px]">
-                      <div className={`w-2 h-2 rounded-full ${pro.is_available ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
-                      {pro.is_available ? 'Available Now' : 'Offline'}
-                    </span>
+                    {(() => {
+                      const presence = getPresenceStatus(pro.last_active_at);
+                      return (
+                        <span className={`flex items-center gap-1.5 text-[10px] ${presence.isOnline ? 'text-emerald-400' : 'text-red-400/90'}`}>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${presence.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+                          <span>{presence.label}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                 </Link>
               ))
@@ -565,8 +592,8 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* Admin Direct Notice / Reminder Modal for Active Mechanic */}
-      {activeAdminNotice && (
+      {/* Admin Direct Notice / Reminder Modal for Active Mechanic Only */}
+      {activeAdminNotice && userRole === "mechanic" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight/85 backdrop-blur-md animate-in fade-in duration-300">
           <div 
             className="w-full max-w-md glass-card border border-turbo-orange/40 rounded-[2.5rem] p-6 sm:p-8 bg-gradient-to-b from-slate-900 to-midnight shadow-[0_0_50px_rgba(255,95,0,0.25)] relative animate-in zoom-in-95 duration-200"

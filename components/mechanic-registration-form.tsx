@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
 import { SERVICE_TYPES } from '@/lib/types';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 // Leaflet components are dynamically imported below to avoid SSR issues
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
@@ -19,6 +20,7 @@ import 'leaflet/dist/leaflet.css';
 // Moved inside the main component body to ensure SSR safety
 
 export function MechanicRegistrationForm() {
+  const { data: nextAuthSession } = useSession();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -44,19 +46,33 @@ export function MechanicRegistrationForm() {
   useEffect(() => {
     const checkStatus = async () => {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setProfile(p => ({ ...p, email: user.email! }));
+      let activeEmail = nextAuthSession?.user?.email;
+      let activeName = nextAuthSession?.user?.name || '';
+      
+      if (!activeEmail) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          activeEmail = user.email;
+          activeName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+        }
+      }
+
+      if (activeEmail) {
+        setProfile(p => ({
+          ...p,
+          email: activeEmail!,
+          full_name: p.full_name || activeName
+        }));
         
         // Final sanity check for existing registration
-        const check = await checkIfAlreadyMechanic(user.email);
+        const check = await checkIfAlreadyMechanic(activeEmail);
         if (check.registered) {
           setAlreadyRegistered(check.status as any);
         }
       }
     };
     checkStatus();
-  }, []);
+  }, [nextAuthSession]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -289,7 +305,7 @@ export function MechanicRegistrationForm() {
 
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Email Address <span className="text-electric-blue ml-1">(Linked to Account)</span></label>
-              <input required name="email" type="email" value={profile.email} onChange={handleProfileChange} readOnly className="h-12 bg-background/50 border border-foreground/10 rounded-xl px-4 text-sm focus:ring-2 focus:ring-turbo-orange outline-none opacity-70 cursor-not-allowed" placeholder="juan@example.com" />
+              <input required name="email" type="email" value={profile.email} onChange={handleProfileChange} readOnly={Boolean(profile.email)} className={`h-12 bg-background/50 border border-foreground/10 rounded-xl px-4 text-sm focus:ring-2 focus:ring-turbo-orange outline-none ${profile.email ? 'opacity-70 cursor-not-allowed' : ''}`} placeholder="juan@example.com" />
             </div>
 
             <div className="flex flex-col gap-2">

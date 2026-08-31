@@ -5,17 +5,23 @@ import { useRouter } from "next/navigation"
 import { MaterialIcon } from "./material-icon"
 import { PH_CITIES } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
+import { useSession } from "next-auth/react"
 
 export function LocationPicker() {
   const router = useRouter()
+  const { data: nextAuthSession } = useSession()
   const supabase = createClient()
   const [city, setCity] = useState("")
   const [locating, setLocating] = useState(false)
   const [locationError, setLocationError] = useState("")
 
   const handleGeolocation = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    let activeUser = nextAuthSession?.user;
+    if (!activeUser) {
+      const { data: { user } } = await supabase.auth.getUser()
+      activeUser = user as any;
+    }
+    if (!activeUser) {
       router.push('/login?message=salamat')
       return
     }
@@ -82,8 +88,12 @@ export function LocationPicker() {
   }, [router])
 
   const handleExplore = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    let activeUser = nextAuthSession?.user;
+    if (!activeUser) {
+      const { data: { user } } = await supabase.auth.getUser()
+      activeUser = user as any;
+    }
+    if (!activeUser) {
       router.push('/login?message=salamat')
       return
     }
