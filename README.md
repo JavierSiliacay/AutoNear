@@ -2,7 +2,7 @@
 
 # TaraFix - Philippines' First Freelance Mechanics Network
 
-<img src="/mascot-waving.gif" alt="TaraFix Mascot" width="180" style="border-radius: 24px; margin: 20px 0;" />
+<img src="./public/mascot-waving.gif" alt="TaraFix Mascot" width="180" style="border-radius: 24px; margin: 20px 0;" />
 
 ### *Get trusted, expert mechanics for home service or on-site repairs in minutes.*
 
