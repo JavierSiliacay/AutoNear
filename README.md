@@ -1,6 +1,12 @@
-# TaraFix
-
 <div align="center">
+
+# TaraFix - Philippines' First Freelance Mechanics Network
+
+<img src="/mascot-waving.gif" alt="TaraFix Mascot" width="180" style="border-radius: 24px; margin: 20px 0;" />
+
+### *Get trusted, expert mechanics for home service or on-site repairs in minutes.*
+
+<br/>
 
 ![Next.js](https://img.shields.io/badge/Next.js-000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
@@ -20,43 +26,99 @@
 
 </div>
 
-**TaraFix** is a premier hyperlocal ecosystem designed to revolutionize how vehicle owners in the Philippines maintain their transport. More than just a directory, TaraFix is a comprehensive bridge connecting motorists with a expert network of automotive professionals—from expert mechanics and vulcanizing shops to specialized oil change centers and car washes.
+---
 
-Built to address the lack of reliable, real-time service information, TaraFix empowers users to find immediate help while providing shop owners a digital platform to grow their business through a verified, trust-based system.
+## Overview
 
-## The TaraFix Mission
+TaraFix is a mobile-first web platform connecting car and motorcycle owners directly with independent freelance mechanics and mobile repair technicians. Drivers can locate nearby technicians, request on-demand emergency repairs or scheduled home maintenance, review transparent quotes, and track job progress in real time.
 
-To provide every Filipino vehicle owner with the peace of mind that expert automotive help is always just a tap away, while professionalizing the local auto-service industry through digital verification and quality standards.
+---
 
 ## Key Features
 
-- **Intelligent Hyperlocal Map**: High-precision geolocation (via Leaflet & OpenStreetMap) that displays the nearest available shops based on your live coordinates.
-- **Verified Professional Network**: Every shop undergoes a manual verification process to ensure business legitimacy, accurate location data, and service quality.
-- **Shop Growth Platform**: "Join Network" feature allows brick-and-mortar shop owners to digitize their business, reach local customers, and manage their service requests.
-- **Real-time Service Discovery**: Instant filtering by service category (Engine, Brakes, Tires, Electrical, Detailing) to find the exact specialist you need.
-- **Secure Admin Ecosystem**: A robust back-office for administrators to review business applications, manage shop listings, and maintain system integrity.
-- **Premium Turbo UI**: A state-of-the-art, glassmorphic dark interface optimized for high-speed performance and mobile-first accessibility.
-- **Direct Privacy-First Communication**: Integrated messaging and booking systems designed to respect user privacy while facilitating seamless service coordination.
+### For Vehicle Owners
 
-## Tech Stack
+- **Interactive Map Search (`/map`)**: Locate nearby freelance mechanics, vulcanizing services, and mobile repair technicians using live GPS coordinates.
+- **Live Activity Tracking**: View technicians' presence timestamps (e.g. Active Now, Active 5 mins ago, or Offline) to find available help quickly.
+- **Direct Service Booking**: Submit service requests with vehicle specifications, issue descriptions, and photo attachments.
+- **In-App Messaging & Media Sharing**: Chat directly with assigned technicians, send photos of vehicle issues, and receive progress updates.
+- **Digital Estimates & Receipts**: Review itemized parts and labor breakdowns before approving repairs, with downloadable receipts upon completion.
+- **Expandable Photo Viewer**: View and zoom profile images and car inspection photos up to 3.5x with pan controls.
+- **System Push Notifications**: Receive audio chimes and lockscreen push alerts for appointment updates and incoming chat messages.
 
-- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
-- **Library**: [React 19](https://react.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Database & Auth**: [Supabase](https://supabase.com/) (PostgreSQL + RLS)
-- **Maps**: [React Leaflet](https://react-leaflet.js.org/) & [Leaflet](https://leafletjs.com/)
-- **UI Components**: [shadcn/ui](https://ui.shadcn.com/), [Radix UI](https://www.radix-ui.com/), [Lucide React](https://lucide.dev/)
-- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
-- **Forms & Validation**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
-- **Rate Limiting**: [Upstash Redis](https://upstash.com/) (@upstash/ratelimit)
-- **Deployment**: [Vercel](https://vercel.com/)
-- **Package Manager**: [PNPM](https://pnpm.io/)
+---
 
+### For Freelance Mechanics
 
-1.  Navigate to `/login`.
-2.  Sign in with an authorized email address.
-3.  You will be redirected to the Admin Queue to manage shop requests.
+- **Independent Schedule & Direct Earnings**: Receive direct service bookings from nearby motorists without intermediary agency commissions.
+- **Role Switching**: Switch between Car Owner and Freelance Mechanic modes within the same account.
+- **Real-Time Job Dispatch**: Receive instant sound chimes and lockscreen push notifications when a nearby driver requests assistance.
+- **Automated Presence**: System status updates automatically while using the app without requiring manual online/offline switches.
+- **Optimized WebP Avatar Uploads**: Profile photos are compressed directly in the browser to lightweight WebP format (<50ms) before storage upload.
+- **Job Management Suite**: Issue digital quotations, update service milestones (Accepted, En Route, Arrived, In Progress, Completed), and generate receipts.
 
-## License
+---
 
-This project is proprietary and developed for TaraFix.
+### Trust & Quality Management
+
+- **Credential Verification**: Strict review of submitted mechanic credentials, valid identification, and GPS-verified service bases before marketplace approval.
+- **Dispute Resolution & Safety**: Customer and technician report investigation with account suspension protocols for fraudulent behavior.
+- **Automated Notifications**: System-wide notification dispatch for registration events and platform updates.
+
+---
+
+## Service Workflow
+
+```mermaid
+graph LR
+    A[Open Map] --> B[Select Active Mechanic]
+    B --> C[Submit Service Request]
+    C --> D[Chat & Approve Estimate]
+    D --> E[Technician Dispatched & Repairs Completed]
+    E --> F[Receipt & Review]
+```
+
+### 1. Requesting Assistance
+1. Open TaraFix on any mobile or desktop browser.
+2. Open the Map view to find active mechanics nearby.
+3. Review technician profiles, customer ratings, and specializations.
+4. Select Book Professional, choose the required service, and submit.
+
+### 2. Service Execution
+- Monitor status updates in the Appointments tab on your Profile.
+- Use the built-in Chat to communicate, share inspection photos, and confirm quotes.
+
+### 3. Mechanic Registration
+1. Navigate to Profile and choose Join Network.
+2. Fill out experience, specialties (e.g. Engine, Brakes, Electrical, PMS), contact details, and pin service base location.
+3. Once reviewed and verified by administration, the profile becomes active for nearby bookings.
+
+---
+
+## Architecture & Technology Stack
+
+- **Frontend Framework**: Next.js 15 (Turbopack), React 19
+- **Styling**: Tailwind CSS 4, shadcn/ui, Radix UI
+- **Database & Storage**: Supabase (PostgreSQL with Row Level Security and PostGIS Geospatial extensions)
+- **Realtime Layer**: Supabase Realtime WebSockets & Web Push Service Worker (`public/sw.js`)
+- **Geospatial Mapping**: React Leaflet, OpenStreetMap, CartoDB Dark Matter
+- **Image Optimization**: Client-Side HTML5 Canvas WebP compression engine
+- **Authentication**: NextAuth.js & Supabase Auth with Google OAuth provider
+- **Rate Limiting & Caching**: Upstash Redis (@upstash/ratelimit)
+
+---
+
+## Installation & Progressive Web App (PWA)
+
+TaraFix can be installed as a standalone PWA on mobile devices:
+
+- **Android (Chrome)**: Tap the install prompt banner or select `Menu (⋮) > Add to Home screen`.
+- **iOS (Safari)**: Tap `Share > Add to Home Screen`.
+
+---
+
+<div align="center">
+
+TaraFix &copy; 2026. All rights reserved.
+
+</div>
