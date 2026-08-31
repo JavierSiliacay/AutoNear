@@ -97,7 +97,7 @@ graph LR
 
 ## Architecture & Technology Stack
 
-- **Frontend Framework**: Next.js 15 (Turbopack), React 19
+- **Frontend Framework**: Next.js 16 (Turbopack), React 19
 - **Styling**: Tailwind CSS 4, shadcn/ui, Radix UI
 - **Database & Storage**: Supabase (PostgreSQL with Row Level Security and PostGIS Geospatial extensions)
 - **Realtime Layer**: Supabase Realtime WebSockets & Web Push Service Worker (`public/sw.js`)
